@@ -17,3 +17,5 @@ Imports:
     dplyr,
     MASS,
     purrr
+URL: https://github.com/maxdrohde/bayes2stage
+BugReports: https://github.com/maxdrohde/bayes2stage/issues
