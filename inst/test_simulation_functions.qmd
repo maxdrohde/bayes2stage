@@ -1,0 +1,12 @@
+---
+title: "Test Data Simulation Functions"
+---
+
+```{r}
+library(bayes2stage)
+library(tidyverse)
+
+# Set global ggplot theme
+theme_set(cowplot::theme_cowplot(font_size=12,
+                                 font_family = "Helvetica"))
+```
