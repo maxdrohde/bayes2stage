@@ -4,7 +4,7 @@
 \alias{create_stan_data}
 \title{Format the simulated data for Stan}
 \usage{
-create_stan_data(dataframe)
+create_stan_data(dataset)
 }
 \arguments{
 \item{dataset}{Dataset to use}

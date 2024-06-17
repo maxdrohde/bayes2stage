@@ -2,6 +2,7 @@
 
 export(bds_design)
 export(create_stan_data)
+export(data_plot)
 export(generate_mixed_effects_data)
 export(ods_design)
 export(srs_design)
