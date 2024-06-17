@@ -24,6 +24,35 @@ generate_mixed_effects_data(
   xz_var = 1
 )
 }
+\arguments{
+\item{N}{Number of subjects to generate}
+
+\item{Ms}{A vector containing the number of timepoints to generate}
+
+\item{alpha_main}{Intercept}
+
+\item{beta_x_e}{x_e effect}
+
+\item{beta_x_z}{x_z effect}
+
+\item{beta_t}{time effect}
+
+\item{beta_t_xe_interaction}{time by x_e interaction}
+
+\item{error_sd}{SD of error term}
+
+\item{rand_intercept_sd}{SD of random intercepts}
+
+\item{rand_slope_sd}{SD of random slopes}
+
+\item{rand_eff_corr}{Correlation between random effects}
+
+\item{x_cov}{Covariance of the covariates}
+
+\item{xe_var}{Variance of x_e}
+
+\item{xz_var}{Variance of x_z}
+}
 \value{
 A simulated mixed-effects dataset
 }

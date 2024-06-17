@@ -27,20 +27,25 @@ generate_one_subject <- function(M,
 
   X <- MASS::mvrnorm(n = 1,
                      mu = c(0,0),
-                     Sigma = matrix(c(xe_var, x_cov, x_cov, xz_var), nrow = 2))
+                     Sigma = matrix(c(xe_var,
+                                      x_cov,
+                                      x_cov,
+                                      xz_var),
+                                    nrow = 2))
 
   # x_e is the "expensive" covariate
   x_e <- X[[1]]
   x_z <- X[[2]]
 
   # Generate outcome
-  y <- alpha_main +
+  y <-
+    alpha_main +
     beta_x_e * x_e +
     beta_x_z * x_z +
     (beta_t + rand_effs[[2]]) * t +
     (beta_t_xe_interaction * t * x_e) +
     rand_effs[[1]] +
-    rnorm(n = M, mean = 0, sd = error_sd)
+    stats::rnorm(n = M, mean = 0, sd = error_sd)
 
   return(data.frame(y=y,
                     t=t,
@@ -56,20 +61,20 @@ generate_one_subject <- function(M,
 #' and slopes. There are two continuous covariate, the expensive covariate
 #' x_e and the inexpensive covariate x_z.
 #'
-#' @param N
-#' @param Ms
-#' @param alpha_main
-#' @param beta_x_e
-#' @param beta_x_z
-#' @param beta_t
-#' @param beta_t_xe_interaction
-#' @param error_sd
-#' @param rand_intercept_sd
-#' @param rand_slope_sd
-#' @param rand_eff_corr
-#' @param x_cov
-#' @param xe_var
-#' @param xz_var
+#' @param N Number of subjects to generate
+#' @param Ms A vector containing the number of timepoints to generate
+#' @param alpha_main Intercept
+#' @param beta_x_e x_e effect
+#' @param beta_x_z x_z effect
+#' @param beta_t time effect
+#' @param beta_t_xe_interaction time by x_e interaction
+#' @param error_sd SD of error term
+#' @param rand_intercept_sd SD of random intercepts
+#' @param rand_slope_sd SD of random slopes
+#' @param rand_eff_corr Correlation between random effects
+#' @param x_cov Covariance of the covariates
+#' @param xe_var Variance of x_e
+#' @param xz_var Variance of x_z
 #' @return A simulated mixed-effects dataset
 #' @export
 generate_mixed_effects_data <- function(N = 1000,
@@ -89,7 +94,7 @@ generate_mixed_effects_data <- function(N = 1000,
 
   ##############################################################################
   # Checks
-  stopifnot("N must be divisible by the length of Ms" = is.integer(N/ length(M)))
+  stopifnot("N must be divisible by the length of Ms" = (N / length(Ms)) == as.integer(N / length(Ms)))
 
   ##############################################################################
 

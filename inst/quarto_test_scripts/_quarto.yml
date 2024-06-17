@@ -1,4 +1,5 @@
 author: "Maximilian Rohde"
+output-dir: _output
 date: today
 toc: true
 toc-depth: 4
