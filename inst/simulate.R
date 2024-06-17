@@ -153,7 +153,7 @@ run_sim <- function(){
   d6$model <- "Bayesian Imputation: ODS"
   d7$model <- "Bayesian Imputation: BLUP"
 
-  d <- purrr::bind_rows(d1, d2, d3, d4, d5, d6, d7)
+  d <- dplyr::bind_rows(d1, d2, d3, d4, d5, d6, d7)
 
   d |> arrow::write_parquet(
     sink = glue::glue("data/data_{Sys.time()}.parquet")
@@ -170,6 +170,6 @@ files <- fs::dir_ls("data")
 
 df <-
   purrr::imap(files, ~arrow::read_parquet(.x) |> mutate(dataset = .y)) |>
-  purrr::bind_rows()
+  dplyr::bind_rows()
 
 arrow::write_parquet(df, sink = "combined.parquet")
