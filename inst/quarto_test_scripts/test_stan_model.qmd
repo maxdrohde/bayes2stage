@@ -13,7 +13,7 @@ model <- cmdstanr::cmdstan_model(stan_file = "../stan/mixed_effects_imputation.s
 
 ```{r}
 df <-
-bayes2stage::generate_mixed_effects_data(N = 100,
+bayes2stage::generate_mixed_effects_data(N = 1000,
                                          Ms = c(5),
                                          alpha_main = 1.2,
                                          beta_x_e = 1.4,

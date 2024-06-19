@@ -1,0 +1,286 @@
+---
+title: "Analyze Simulations"
+freeze: false
+---
+
+```{r}
+library(tidyverse)
+library(patchwork)
+
+theme_set(cowplot::theme_cowplot(font_size=12,
+                                 font_family = "Helvetica"))
+```
+
+```{r}
+df <- arrow::read_parquet("combined.parquet")
+```
+
+```{r}
+summary_df <- 
+df |>
+  summarise(posterior_mean = mean(beta_x_e),
+            .by = c("model", "dataset"))
+
+
+create_summary_df <- function(df){
+  summary_df <-
+  df |>
+  summarise(posterior_mean_mean = format(mean(posterior_mean), digits = 3),
+            posterior_mean_iqr = format(IQR(posterior_mean), digits = 3),
+            posterior_mean_sd = format(sd(posterior_mean), digits = 3),
+            ci_width_mean = format(mean(ci_width), digits = 3),
+            ci_width_iqr = format(IQR(ci_width), digits = 3),
+            ci_width_sd = format(sd(ci_width), digits = 3),
+            .by = "model")
+
+  summary_df$posterior_mean_mean <- map_chr(summary_df$posterior_mean_mean, ~glue::glue("Mean: {.x}"))
+  summary_df$posterior_mean_iqr <- map_chr(summary_df$posterior_mean_iqr, ~glue::glue("IQR: {.x}"))
+  summary_df$posterior_mean_sd <- map_chr(summary_df$posterior_mean_sd, ~glue::glue("SD: {.x}"))
+  
+  summary_df$ci_width_mean <- map_chr(summary_df$ci_width_mean, ~glue::glue("Mean: {.x}"))
+  summary_df$ci_width_iqr <- map_chr(summary_df$ci_width_iqr, ~glue::glue("IQR: {.x}"))
+  summary_df$ci_width_sd <- map_chr(summary_df$ci_width_sd, ~glue::glue("SD: {.x}"))
+  return(summary_df)
+}
+```
+
+# Data Wrangling
+
+```{r}
+plot_df_low <- create_plot_df(df_low)
+plot_df_high <- create_plot_df(df_high)
+```
+
+```{r}
+summary_df_low <- create_summary_df(plot_df_low)
+summary_df_high <- create_summary_df(plot_df_high)
+```
+
+# Histograms Posterior Mean
+
+## Low
+
+```{r}
+fig_low <-
+plot_df_low |>
+  ggplot() +
+  aes(x = posterior_mean, y = after_stat(density)) +
+  geom_histogram(bins = 200, fill = "lightgray", color = "black") +
+  geom_vline(xintercept = 1, linetype = 2) +
+  geom_text(mapping = aes(label = posterior_mean_mean, x = 5, y = 1.4),
+            size = 3.2,
+            data = summary_df_low) +
+  geom_text(mapping = aes(label = posterior_mean_iqr, x = 5, y = 1.0),
+            size = 3.2,
+            data = summary_df_low) +
+  geom_text(mapping = aes(label = posterior_mean_sd, x = 5, y = 0.6),
+            size = 3.2,
+            data = summary_df_low) +
+  facet_wrap(~model, ncol=1) +
+  coord_cartesian(xlim = c(-1, 6), ylim = c(0, 1.6)) +
+  scale_x_continuous(breaks = -1:6) +
+  scale_y_continuous(breaks = seq(0, 1.5, length.out = 4)) +
+  labs(title = "Estimated sampling distribution",
+       subtitle = "Parameter: Beta X_e\nEstimator: Posterior Mean\nScenario: Beta X_1 Low",
+       x = "Posterior Mean",
+       y = "Density",
+       caption = "Number of simulations: 2000")
+
+ggsave(
+  fig_low,
+  filename = "figures/histogram_scenario_low.png", 
+  bg = "white",
+  device = ragg::agg_png,
+  units="in",
+  height = 8,
+  width=8,
+  dpi=500)
+```
+
+## High
+
+```{r}
+fig_high <-
+plot_df_high |>
+  ggplot() +
+  aes(x = posterior_mean, y = after_stat(density)) +
+  geom_histogram(bins = 200, fill = "lightgray", color = "black") +
+  geom_vline(xintercept = 1, linetype = 2) +
+  geom_text(mapping = aes(label = posterior_mean_mean, x = 5, y = 1.4),
+            size = 3.2,
+            data = summary_df_high) +
+  geom_text(mapping = aes(label = posterior_mean_iqr, x = 5, y = 1.0),
+            size = 3.2,
+            data = summary_df_high) +
+  geom_text(mapping = aes(label = posterior_mean_sd, x = 5, y = 0.6),
+            size = 3.2,
+            data = summary_df_high) +
+  facet_wrap(~model, ncol=1) +
+  coord_cartesian(xlim = c(-1, 6), ylim = c(0, 1.6)) +
+  scale_x_continuous(breaks = -1:6) +
+  scale_y_continuous(breaks = seq(0, 1.5, length.out = 4)) +
+  labs(title = "Estimated sampling distribution",
+       subtitle = "Parameter: Beta X_e\nEstimator: Posterior Mean\nScenario: Beta X_1 High",
+       x = "Posterior Mean",
+       y = "Density",
+       caption = "Number of simulations: 2000")
+
+ggsave(
+  fig_high,
+  filename = "figures/histogram_scenario_high.png", 
+  bg = "white",
+  device = ragg::agg_png,
+  units="in",
+  height = 8,
+  width=8,
+  dpi=500)
+```
+
+## Combined
+
+```{r}
+combined <- fig_low + fig_high
+
+ggsave(
+  combined,
+  filename = "figures/histogram_combined.png", 
+  bg = "white",
+  device = ragg::agg_png,
+  units="in",
+  height = 8,
+  width=12,
+  dpi=500)
+```
+
+# Coverage
+
+```{r}
+plot_df_low$cover <- between(rep(1, nrow(plot_df_low)),
+                             plot_df_low$ci_low,
+                             plot_df_low$ci_high)
+
+plot_df_high$cover <- between(rep(1, nrow(plot_df_high)),
+                             plot_df_high$ci_low,
+                             plot_df_high$ci_high)
+```
+
+```{r}
+d1 <-
+plot_df_low |>
+  summarise(mean(cover), .by = model) |>
+  mutate(scenario = "Low")
+  
+d2 <-
+plot_df_high |>
+  summarise(mean(cover), .by = model) |>
+  mutate(scenario = "High")
+
+d <-
+bind_rows(d1, d2) |>
+  mutate(`mean(cover)` = round(`mean(cover)`, 3)) |>
+  pivot_wider(names_from = scenario, values_from = `mean(cover)`)
+
+names(d) <- c("Model",
+              "Beta X_1 Low",
+              "Beta X_1 High")
+
+d |>
+  write_csv("tables/coverage.csv")
+```
+
+# Histograms Posterior Interval Width
+
+## Low
+
+```{r}
+fig_low <-
+plot_df_low |>
+  ggplot() +
+  aes(x = ci_width, y = after_stat(density)) +
+  geom_histogram(bins = 200, fill = "lightgray", color = "black") +
+  geom_text(mapping = aes(label = ci_width_mean, x = 5, y = 6),
+            size = 3.2,
+            data = summary_df_low) +
+  geom_text(mapping = aes(label = ci_width_iqr, x = 5, y = 4),
+            size = 3.2,
+            data = summary_df_low) +
+  geom_text(mapping = aes(label = ci_width_sd, x = 5, y = 2),
+            size = 3.2,
+            data = summary_df_low) +
+  facet_wrap(~model, ncol=1) +
+  coord_cartesian(xlim = c(0.5, 6), ylim = c(0, 6.5)) +
+  scale_x_continuous(breaks = 1:6) +
+  scale_y_continuous(breaks = seq(0, 8, length.out = 5)) +
+  labs(title = "Distribution of 95% Posterior Interval Width",
+       subtitle = "Parameter: Beta X_e\nScenario: Beta X_1 Low",
+       x = "Posterior Interval Width",
+       y = "Density",
+       caption = "Number of simulations: 2000")
+
+ggsave(
+  fig_low,
+  filename = "figures/histogram_ci_width_scenario_low.png", 
+  bg = "white",
+  device = ragg::agg_png,
+  units="in",
+  height = 8,
+  width=8,
+  dpi=500)
+```
+
+## High
+
+```{r}
+fig_high <-
+plot_df_high |>
+  ggplot() +
+  aes(x = ci_width, y = after_stat(density)) +
+  geom_histogram(bins = 200, fill = "lightgray", color = "black") +
+  geom_text(mapping = aes(label = ci_width_mean, x = 5, y = 6),
+            size = 3.2,
+            data = summary_df_high) +
+  geom_text(mapping = aes(label = ci_width_iqr, x = 5, y = 4),
+            size = 3.2,
+            data = summary_df_high) +
+  geom_text(mapping = aes(label = ci_width_sd, x = 5, y = 2),
+            size = 3.2,
+            data = summary_df_high) +
+  facet_wrap(~model, ncol=1) +
+  coord_cartesian(xlim = c(0.5, 6), ylim = c(0, 6.5)) +
+  scale_x_continuous(breaks = 1:6) +
+  scale_y_continuous(breaks = seq(0, 8, length.out = 5)) +
+  labs(title = "Distribution of 95% Posterior Interval Width",
+       subtitle = "Parameter: Beta X_e\nScenario: Beta X_1 High",
+       x = "Posterior Interval Width",
+       y = "Density",
+       caption = "Number of simulations: 2000")
+
+ggsave(
+  fig_high,
+  filename = "figures/histogram_ci_width_scenario_high.png", 
+  bg = "white",
+  device = ragg::agg_png,
+  units="in",
+  height = 8,
+  width=8,
+  dpi=500)
+```
+
+## Combined
+
+```{r}
+combined <- fig_low + fig_high
+
+ggsave(
+  combined,
+  filename = "figures/histogram_ci_width_combined.png", 
+  bg = "white",
+  device = ragg::agg_png,
+  units="in",
+  height = 8,
+  width=12,
+  dpi=500)
+```
+
+
+

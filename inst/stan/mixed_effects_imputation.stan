@@ -48,6 +48,7 @@ parameters {
   real alpha_main;
   real beta_t;
   real beta_x_e;
+  real beta_xe_t_interaction;
   vector[P] beta;
   real<lower=0> sigma_main;
 
@@ -77,6 +78,7 @@ model {
   beta ~ normal(0,10);
   beta_t ~ normal(0,10);
   beta_x_e ~ normal(0,10);
+  beta_xe_t_interaction ~ normal(0,10);
   gamma ~ normal(0,10);
 
   // Model for random intercepts and random slopes
@@ -86,7 +88,12 @@ model {
   
   vector[N] intercept;
   for (n in 1:N) {
-    intercept[n] = alpha_main + (beta_x_e * x_e[id[n]]) + rand_effects[id[n], 1] + (beta_t + rand_effects[id[n], 2]) * t[n];
+    intercept[n] =
+    alpha_main +
+    (beta_x_e * x_e[id[n]]) +
+    rand_effects[id[n], 1] +
+    (beta_t + rand_effects[id[n], 2]) * t[n] +
+    (beta_xe_t_interaction * x_e[id[n]] * t[n]);
   }
 
   // Main model likelihood
