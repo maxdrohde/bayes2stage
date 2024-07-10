@@ -22,7 +22,7 @@ create_stan_data <- function(dataset){
   t <- dataset$t
   P <- ncol(X)
 
-  Z <- id_df[c("x_z")] |> as.matrix()
+  Z <- model.matrix(~-1 + splines::ns(x_z, 4), data = id_df)
   S <- ncol(Z)
 
   data_list <-
