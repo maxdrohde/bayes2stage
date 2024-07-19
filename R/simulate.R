@@ -60,11 +60,10 @@ run_sim <- function(N,
                       chains = 2,
                       parallel_chains = 1,
                       max_treedepth = 14L,
-                      show_messages = TRUE,
-                      show_exceptions = TRUE,
+                      show_messages = FALSE,
+                      show_exceptions = FALSE,
                       iter_warmup = iter_warmup,
-                      iter_sampling = iter_sampling,
-                      silent = 2)
+                      iter_sampling = iter_sampling)
 
   res <-
     fit$draws(variables = c("alpha_main",
