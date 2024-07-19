@@ -3,7 +3,8 @@
 #' @param dataset Dataset to use
 #' @return A list suitable for input to Stan
 #' @export
-create_stan_data <- function(dataset){
+create_stan_data <- function(dataset,
+                             spline = FALSE){
 
   ##############################################################################
   # Check if proper names in dataset
@@ -22,7 +23,12 @@ create_stan_data <- function(dataset){
   t <- dataset$t
   P <- ncol(X)
 
-  Z <- model.matrix(~-1 + splines::ns(x_z, 4), data = id_df)
+  if (spline) {
+    Z <- model.matrix(~-1 + splines::ns(x_z, 4), data = id_df)
+  } else {
+    Z <- id_df[c("x_z")] |> as.matrix()
+  }
+
   S <- ncol(Z)
 
   data_list <-

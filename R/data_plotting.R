@@ -4,7 +4,8 @@
 #' @param subset_size How many subjects to use?
 #' @return A ggplot2 object
 #' @export
-data_plot <- function(dataset, subset_size){
+data_plot <- function(dataset,
+                      subset_size = 200){
 
   df <-
   df |>
@@ -40,8 +41,25 @@ plt_x <-
   ggplot2::geom_point(size = 0.2) +
   ggplot2::theme_bw()
 
-design <- "AAA
-           BCD"
+hist_xe <-
+  df |>
+  dplyr::filter(t == 1) |>
+  ggplot2::ggplot() +
+  ggplot2::aes(x_e) +
+  ggplot2::geom_histogram(bins = 50, color = "black", fill = "lightgray") +
+  ggplot2::theme_bw()
+
+hist_xz <-
+  df |>
+  dplyr::filter(t == 1) |>
+  ggplot2::ggplot() +
+  ggplot2::aes(x_z) +
+  ggplot2::geom_histogram(bins = 50, color = "black", fill = "lightgray") +
+  ggplot2::theme_bw()
+
+design <- "AAAAAA
+           BBCCDD
+           EEEFFF"
 
 combined <-
   patchwork::wrap_plots(
@@ -49,6 +67,8 @@ combined <-
              B = plt_xe,
              C = plt_xz,
              D = plt_x,
+             E = hist_xe,
+             F = hist_xz,
              design = design)
 
 return(combined)

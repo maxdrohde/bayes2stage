@@ -1,0 +1,3 @@
+alpha_main,beta_t,beta_x_e,beta_xe_t_interaction,beta.1.,N,sampling_type,sampling_design,impute,gamma2,true_beta_x_e,true_beta_x_z,gamma_sd,spline
+0.9191643088,1.10392766,0.842444528,1.4150841,0.6364144927300001,200,slope,ODS,FALSE,0,1,1,1,FALSE
+0.075974261,1.500435,1.55442896,1.2690365,-0.466510161,200,slope,ODS,FALSE,0,1,1,1,FALSE
