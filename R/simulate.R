@@ -1,3 +1,15 @@
+# cpp_opts <- list(
+#   stan_threads = TRUE
+#   , STAN_CPP_OPTIMS = TRUE
+#   , PRECOMPILED_HEADERS = TRUE
+#   , CXXFLAGS_OPTIM = "-march=native -mtune=native"
+#   , CXXFLAGS_OPTIM_TBB = "-mtune=native -march=native"
+#   , CXXFLAGS_OPTIM_SUNDIALS = "-mtune=native -march=native"
+# )
+#
+# cmdstanr::install_cmdstan(cpp_options = cpp_opts)
+
+
 run_sim <- function(N,
                     sampling_type,
                     sampling_design,
@@ -32,7 +44,11 @@ run_sim <- function(N,
       gamma_sd = gamma_sd
     )
 
-  model <- cmdstanr::cmdstan_model(stan_file = "mixed_effects_imputation.stan")
+  model <- cmdstanr::cmdstan_model(stan_file = "mixed_effects_imputation.stan",
+                                   cpp_options = list(stan_cpp_optims = TRUE,
+                                                      CXXFLAGS_OPTIM = "-march=native -mtune=native",
+                                                      CXXFLAGS_OPTIM_TBB = "-mtune=native -march=native",
+                                                      CXXFLAGS_OPTIM_SUNDIALS = "-mtune=native -march=native"))
 
   if (sampling_design == "ODS") {
     stage2_df <- bayes2stage::ods_design(df, type = sampling_type)
