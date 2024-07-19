@@ -63,7 +63,8 @@ run_sim <- function(N,
                       show_messages = TRUE,
                       show_exceptions = TRUE,
                       iter_warmup = iter_warmup,
-                      iter_sampling = iter_sampling)
+                      iter_sampling = iter_sampling,
+                      silent = 2)
 
   res <-
     fit$draws(variables = c("alpha_main",
