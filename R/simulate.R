@@ -132,7 +132,7 @@ simulate <- function(i,
                                    beta_x_z = row$GRID_beta_x_z[[1]],
                                    gamma_sd = row$GRID_gamma_sd[[1]],
                                    spline = row$GRID_spline[[1]]),
-                    .progress = FALSE) |>
+                    .progress = TRUE) |>
     purrr::list_rbind()
 
   readr::write_csv(out, glue::glue("results_{i}.csv"))
