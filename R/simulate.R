@@ -32,7 +32,7 @@ run_sim <- function(N,
       gamma_sd = gamma_sd
     )
 
-  model <- cmdstanr::cmdstan_model(stan_file = "~/r_package_development/bayes2stage/inst/stan/mixed_effects_imputation.stan")
+  model <- cmdstanr::cmdstan_model(stan_file = "mixed_effects_imputation.stan")
 
   if (sampling_design == "ODS") {
     stage2_df <- bayes2stage::ods_design(df, type = sampling_type)
@@ -66,7 +66,11 @@ run_sim <- function(N,
                       iter_sampling = iter_sampling)
 
   res <-
-    fit$draws(variables = c("alpha_main", "beta_t", "beta_x_e", "beta_xe_t_interaction", "beta[1]"),
+    fit$draws(variables = c("alpha_main",
+                            "beta_t",
+                            "beta_x_e",
+                            "beta_xe_t_interaction",
+                            "beta[1]"),
                  format = "matrix") |>
     colMeans() |>
     as.data.frame.list()
