@@ -8,6 +8,9 @@ run_sim <- function(N,
                     gamma_sd,
                     spline){
 
+  iter_warmup <- 1000
+  iter_sampling <- 2000
+
   stopifnot(sampling_type %in% c("intercept", "slope"))
 
   df <-
@@ -59,8 +62,8 @@ run_sim <- function(N,
                       max_treedepth = 14L,
                       show_messages = TRUE,
                       show_exceptions = TRUE,
-                      iter_warmup = 1000,
-                      iter_sampling = 2000)
+                      iter_warmup = iter_warmup,
+                      iter_sampling = iter_sampling)
 
   res <-
     fit$draws(variables = c("alpha_main", "beta_t", "beta_x_e", "beta_xe_t_interaction", "beta[1]"),
@@ -77,6 +80,8 @@ run_sim <- function(N,
   res$true_beta_x_z <- beta_x_z
   res$gamma_sd <- gamma_sd
   res$spline <- spline
+  res$iter_warmup <- iter_warmup
+  res$iter_sampling <- iter_sampling
 
   return(res)
 }
