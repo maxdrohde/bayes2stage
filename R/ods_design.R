@@ -73,8 +73,8 @@ ods_design <- function(dataset,
   ods$category <-
     cut(target,
         breaks = c(-Inf,
-                   stats::quantile(target, 0.1),
-                   stats::quantile(target, 0.9),
+                   stats::quantile(target, cutoff_low),
+                   stats::quantile(target, cutoff_high),
                    Inf),
         labels = c("Low", "Middle", "High"))
 
