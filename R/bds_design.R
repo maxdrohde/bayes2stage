@@ -1,12 +1,25 @@
-# Given a dataset and an lmer formula, return a data.frame of the BLUPs for
-# each subject ID
-get_blups <- function(dataset, type){
+# Given a dataset and an lmer formula, return a data.frame
+# of the BLUPs for each subject
+get_blups <- function(dataset,
+                      fixed_effects_formula,
+                      sampling_type){
 
+  # Data checks
+  stopifnot("t must be a variable in the data" = ("t" %in% names(dataset)))
+  stopifnot("id must be a variable in the data" = ("id" %in% names(dataset)))
+  stopifnot("t must be a variable in the model" = ("t" %in% all.vars(fixed_effects_formula)))
 
-  mod <- lme4::lmer("y ~ x_z + t + (1 + t | id)",
+  # Add the random-effects to the user supplied fixed-effects formula
+  lmer_formula <-
+    glue::glue("{deparse(fixed_effects_formula)} + (1 + t | id)") |>
+    as.formula()
+
+  # Fit the lme4 mixed-effect model to compute BLUPs
+  mod <- lme4::lmer(formula = lmer_formula,
                     data = dataset)
 
-  if (type == "intercept") {
+  # Extract the intercept BLUPs
+  if (sampling_type == "intercept") {
     out <-
       lme4::ranef(mod) |>
       as.data.frame() |>
@@ -14,7 +27,8 @@ get_blups <- function(dataset, type){
       dplyr::select(id = grp, intercept = condval)
   }
 
-  if (type == "slope") {
+  # Extract the slope BLUPs
+  if (sampling_type == "slope") {
     out <-
       lme4::ranef(mod) |>
       as.data.frame() |>
@@ -22,82 +36,87 @@ get_blups <- function(dataset, type){
       dplyr::select(id = grp, slope = condval)
   }
 
-  out$id <-
-    out$id |>
-    as.character() |>
-    as.integer()
+  out$id <- as.integer(as.character(out$id))
 
-  return(as.data.frame(out))
+  return(out)
 }
 
 #' Set x_e to missing based on an BDS design
 #'
 #' @param dataset Dataset to use
-#' @param type Which type of sampling? "intercept" or "slope"
+#' @param fixed_effects_formula Formula for the fixed-effects when fitting the model to estimate BLUPs
+#' @param sampling_type Which type of sampling? "intercept" or "slope"
 #' @param cutoff_high Which quantile to use as the cutoff for the High category
 #' @param cutoff_low Which quantile to use as the cutoff for the Low category
+#' @param sampling_N How many subjects should be sampled?
 #' @param prop_high What proportion to sample from the High category?
 #' @param prop_middle What proportion to sample from the Middle category?
 #' @param prop_low What proportion to sample from the Low category?
 #' @return A dataset where the x_e values are selected based on an BDS design
 #' @export
 bds_design <- function(dataset,
-                       type,
-                       cutoff_high = 0.9,
-                       cutoff_low = 0.1,
-                       prop_high = 0.1,
-                       prop_middle = 0.05,
-                       prop_low = 0.1){
+                       fixed_effects_formula,
+                       sampling_type,
+                       cutoff_high,
+                       cutoff_low,
+                       sampling_N,
+                       prop_high,
+                       prop_middle,
+                       prop_low){
 
-  ##############################################################################
-  # Check if proper names in dataset
-  col_names <- names(dataset)
-  stopifnot("y" %in% col_names)
-  stopifnot("t" %in% col_names)
-  stopifnot("id" %in% col_names)
-  stopifnot("x_e" %in% col_names)
+  stopifnot("Choose either 'intercept' or 'slope' as `sampling_type`" = sampling_type %in% c("intercept", "slope"))
+  stopifnot("Strata proportions must sum to 1" = prop_high + prop_middle + prop_low == 1)
+  stopifnot("x_e must be a variable in the data" = ("x_e" %in% names(dataset)))
+  stopifnot("Number of subjects sampled must be a whole number" = is.wholenumber(sampling_N))
 
-  stopifnot("Choose either 'intercept' or 'slope' as `type`" = type %in% c("intercept", "slope"))
-  ##############################################################################
+  blups <-
+    get_blups(dataset,
+              fixed_effects_formula,
+              sampling_type)
 
-  bds <- get_blups(dataset, type)
-  G <- nrow(bds)
-
-  target <- as.numeric(bds[,2])
+  # Get the Intercept or Slope estimates
+  sampling_feature <- as.numeric(blups[,2])
 
   # Categorize  into high, middle, and low strata based on quantiles
-  bds$category <-
-    cut(target,
+  blups$category <-
+    cut(sampling_feature,
         breaks = c(-Inf,
-                   stats::quantile(target, cutoff_low),
-                   stats::quantile(target, cutoff_high),
+                   stats::quantile(sampling_feature, cutoff_low),
+                   stats::quantile(sampling_feature, cutoff_high),
                    Inf),
         labels = c("Low", "Middle", "High"))
 
+  size_high <- sampling_N * prop_high
+  size_middle <- sampling_N * prop_middle
+  size_low <- sampling_N * prop_low
+
   # Sample IDs from the high, middle, and low strata
-  high_ids <- sample(dplyr::filter(bds, category == "High")$id,
-                     size = G * prop_high,
+  high_ids <- sample(dplyr::filter(blups, category == "High")$id,
+                     size = size_high,
                      replace = FALSE)
-  middle_ids <- sample(dplyr::filter(bds, category == "Middle")$id,
-                       size = G * prop_middle,
+  middle_ids <- sample(dplyr::filter(blups, category == "Middle")$id,
+                       size = size_middle,
                        replace = FALSE)
-  low_ids <- sample(dplyr::filter(bds, category == "Low")$id,
-                    size = G * prop_low,
+  low_ids <- sample(dplyr::filter(blups, category == "Low")$id,
+                    size = size_low,
                     replace = FALSE)
 
-  # IDs chosen for stage 2
-  selected_ids <- c(high_ids, middle_ids, low_ids)
+  # Subjects IDs chosen for sampling
+  selected_ids <- c(high_ids,
+                    middle_ids,
+                    low_ids)
 
   # If not chosen for stage 2, set x_e to missing
   stage2_df <- dataset
   stage2_df[!(stage2_df$id %in% selected_ids),]$x_e <- NA
 
-  # Mark selected = TRUE if chosen for stage 2 collection
-  stage2_df$selected <- "No"
-  stage2_df[(stage2_df$id %in% selected_ids),]$selected <- "Yes"
+  # Mark which subjects were selected
+  stage2_df$selected <- FALSE
+  stage2_df[(stage2_df$id %in% selected_ids),]$selected <- TRUE
 
+  # Merge in the information on the estimated BLUPs
   stage2_df <- dplyr::left_join(stage2_df,
-                                bds,
+                                blups,
                                 by = "id")
 
   return(stage2_df)

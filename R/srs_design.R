@@ -1,32 +1,28 @@
 #' Set x_e to missing based on an SRS design
 #'
 #' @param dataset Dataset to use
-#' @param proportion What proportion of subjects to sample?
+#' @param sampling_N What number of subjects to sample?
 #' @return A dataset where the x_e values are selected based on an SRS design
 #' @export
-srs_design <- function(dataset, proportion){
+srs_design <- function(dataset, sampling_N){
 
-  ##############################################################################
-  # Check if proper names in dataset
-  col_names <- names(dataset)
-  stopifnot("y" %in% col_names)
-  stopifnot("t" %in% col_names)
-  stopifnot("id" %in% col_names)
-  stopifnot("x_e" %in% col_names)
-  ##############################################################################
+  stopifnot("id must be a variable in the data" = ("id" %in% names(dataset)))
+  stopifnot("x_e must be a variable in the data" = ("x_e" %in% names(dataset)))
+  stopifnot("Number of subjects sampled must be a whole number" = is.wholenumber(sampling_N))
+
 
   # IDs chosen for stage 2
   selected_ids <- sample(unique(dataset$id),
-                         size = proportion * length(unique(dataset$id)),
+                         size = sampling_N,
                          replace = FALSE)
 
   # If not chosen for stage 2, set x_e to missing
   stage2_df <- dataset
   stage2_df[!(stage2_df$id %in% selected_ids),]$x_e <- NA
 
-  # Mark selected = TRUE if chosen for stage 2 collection
-  stage2_df$selected <- "No"
-  stage2_df[(stage2_df$id %in% selected_ids),]$selected <- "Yes"
+  # Mark which subjects were selected
+  stage2_df$selected <- TRUE
+  stage2_df[(stage2_df$id %in% selected_ids),]$selected <- FALSE
 
   return(stage2_df)
 }
