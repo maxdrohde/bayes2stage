@@ -29,12 +29,10 @@ generate_one_subject_quadratic <- function(M,
 
   x_z <- rnorm(n = 1, mean = 0, sd = 1)
 
-  # Quadratic relationship
   x_e <-
     gamma0 +
     gamma1*x_z +
-    gamma2*x_z^2 +
-    rnorm(n = 1, mean = 0, sd = gamma_sd)
+    gamma2*x_z^2
 
   stopifnot("Error type not supported" = error_type %in% c("normal", "uniform", "exponential"))
 
