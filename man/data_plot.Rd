@@ -4,7 +4,7 @@
 \alias{data_plot}
 \title{Plot simulated data}
 \usage{
-data_plot(dataset, subset_size)
+data_plot(dataset, subset_size = 200)
 }
 \arguments{
 \item{dataset}{Dataset to use}

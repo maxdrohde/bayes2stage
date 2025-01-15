@@ -6,22 +6,28 @@
 \usage{
 bds_design(
   dataset,
-  type,
-  cutoff_high = 0.9,
-  cutoff_low = 0.1,
-  prop_high = 0.1,
-  prop_middle = 0.05,
-  prop_low = 0.1
+  fixed_effects_formula,
+  sampling_type,
+  cutoff_high,
+  cutoff_low,
+  sampling_N,
+  prop_high,
+  prop_middle,
+  prop_low
 )
 }
 \arguments{
 \item{dataset}{Dataset to use}
 
-\item{type}{Which type of sampling? "intercept" or "slope"}
+\item{fixed_effects_formula}{Formula for the fixed-effects when fitting the model to estimate BLUPs}
+
+\item{sampling_type}{Which type of sampling? "intercept" or "slope"}
 
 \item{cutoff_high}{Which quantile to use as the cutoff for the High category}
 
 \item{cutoff_low}{Which quantile to use as the cutoff for the Low category}
+
+\item{sampling_N}{How many subjects should be sampled?}
 
 \item{prop_high}{What proportion to sample from the High category?}
 

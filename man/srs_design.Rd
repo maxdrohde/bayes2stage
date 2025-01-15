@@ -4,12 +4,12 @@
 \alias{srs_design}
 \title{Set x_e to missing based on an SRS design}
 \usage{
-srs_design(dataset, proportion)
+srs_design(dataset, sampling_N)
 }
 \arguments{
 \item{dataset}{Dataset to use}
 
-\item{proportion}{What proportion of subjects to sample?}
+\item{sampling_N}{What number of subjects to sample?}
 }
 \value{
 A dataset where the x_e values are selected based on an SRS design
