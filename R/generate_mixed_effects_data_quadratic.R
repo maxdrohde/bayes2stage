@@ -5,7 +5,7 @@ generate_one_subject_quadratic <- function(M,
                                  beta_x_z,
                                  beta_t,
                                  beta_t_xe_interaction,
-                                 error_param,
+                                 error_sd,
                                  error_type,
                                  rand_intercept_sd,
                                  rand_slope_sd,
@@ -42,13 +42,18 @@ generate_one_subject_quadratic <- function(M,
 
   stopifnot("Error type not supported" = error_type %in% c("normal", "uniform", "exponential"))
 
+  find_unif_min_max <- function(sd) {
+    M <- sd * sqrt(3)
+    return(c(min = -M, max = M))
+  }
+
   y <-
     y +
     switch(
       error_type,
-      normal = stats::rnorm(n = M, mean = 0, sd = error_param),
-      uniform = stats::runif(n = M, min = -error_param, max = error_param),
-      exponential = stats::rexp(n = M, rate = error_param) - (1 / error_param)
+      normal = stats::rnorm(n = M, mean = 0, sd = error_sd),
+      uniform = stats::runif(n = M, min = -error_sd * sqrt(3), max = error_sd * sqrt(3)),
+      exponential = stats::rexp(n = M, rate = 1 / error_sd) - (error_sd)
     )
 
   return(data.frame(y=y,
@@ -72,7 +77,7 @@ generate_one_subject_quadratic <- function(M,
 #' @param beta_x_z x_z effect
 #' @param beta_t time effect
 #' @param beta_t_xe_interaction time by x_e interaction
-#' @param error_param SD of error term
+#' @param error_sd SD of error term
 #' @param rand_intercept_sd SD of random intercepts
 #' @param rand_slope_sd SD of random slopes
 #' @param rand_eff_corr Correlation between random effects
@@ -85,7 +90,7 @@ generate_mixed_effects_data_quadratic <- function(N = 1000,
                                         beta_x_z = 0.5,
                                         beta_t = 2,
                                         beta_t_xe_interaction = 1,
-                                        error_param = 1,
+                                        error_sd = 1,
                                         error_type = "normal",
                                         rand_intercept_sd = 3,
                                         rand_slope_sd = 3,
@@ -112,7 +117,7 @@ generate_mixed_effects_data_quadratic <- function(N = 1000,
                                       beta_x_z = beta_x_z,
                                       beta_t = beta_t,
                                       beta_t_xe_interaction = beta_t_xe_interaction,
-                                      error_param = error_param,
+                                      error_sd = error_sd,
                                       error_type = error_type,
                                       rand_intercept_sd = rand_intercept_sd,
                                       rand_slope_sd = rand_slope_sd,
