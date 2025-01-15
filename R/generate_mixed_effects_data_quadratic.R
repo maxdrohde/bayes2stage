@@ -28,8 +28,24 @@ generate_one_subject_quadratic <- function(M,
   t <- 0:(M-1)
 
   x_z <- rnorm(n = 1, mean = 0, sd = 1)
+
   # Quadratic relationship
-  x_e <- gamma0 + gamma1*x_z + gamma2*x_z^2 + rnorm(n = 1, mean = 0, sd = gamma_sd)
+  x_e <-
+    gamma0 +
+    gamma1*x_z +
+    gamma2*x_z^2 +
+    rnorm(n = 1, mean = 0, sd = gamma_sd)
+
+  stopifnot("Error type not supported" = error_type %in% c("normal", "uniform", "exponential"))
+
+  x_e <-
+    x_e +
+    switch(
+      error_type,
+      normal = stats::rnorm(n = 1, mean = 0, sd = gamma_sd),
+      uniform = stats::runif(n = 1, min = -gamma_sd * sqrt(3), max = gamma_sd * sqrt(3)),
+      exponential = stats::rexp(n = 1, rate = 1 / gamma_sd) - (gamma_sd)
+    )
 
   # Generate outcome
   y <-
@@ -38,23 +54,8 @@ generate_one_subject_quadratic <- function(M,
     beta_x_z * x_z +
     (beta_t + rand_effs[[2]]) * t +
     (beta_t_xe_interaction * t * x_e) +
-    rand_effs[[1]]
-
-  stopifnot("Error type not supported" = error_type %in% c("normal", "uniform", "exponential"))
-
-  find_unif_min_max <- function(sd) {
-    M <- sd * sqrt(3)
-    return(c(min = -M, max = M))
-  }
-
-  y <-
-    y +
-    switch(
-      error_type,
-      normal = stats::rnorm(n = M, mean = 0, sd = error_sd),
-      uniform = stats::runif(n = M, min = -error_sd * sqrt(3), max = error_sd * sqrt(3)),
-      exponential = stats::rexp(n = M, rate = 1 / error_sd) - (error_sd)
-    )
+    rand_effs[[1]] +
+    stats::rnorm(n = M, mean = 0, sd = error_sd)
 
   return(data.frame(y=y,
                     t=t,
