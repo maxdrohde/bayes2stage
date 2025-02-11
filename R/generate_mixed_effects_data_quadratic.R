@@ -82,7 +82,8 @@ generate_one_subject_quadratic <- function(M,
 #' @param rand_eff_corr Correlation between random effects
 #' @return A simulated mixed-effects dataset
 #' @export
-generate_mixed_effects_data_quadratic <- function(N = 1000,
+generate_mixed_effects_data_quadratic <- function(
+                                        N = 1000,
                                         Ms = 5,
                                         alpha_main = 1,
                                         beta_x_e = 2,

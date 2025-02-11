@@ -17,21 +17,24 @@ plt_t <-
   ggplot2::aes(x = t, y = y, group = id) +
   ggplot2::geom_line(linewidth = 0.1) +
   ggplot2::geom_hline(yintercept = 0, linetype = 2) +
-  ggplot2::theme_bw()
+  ggplot2::theme_bw() +
+  ggplot2::labs(x = "Time", y = "Y")
 
 plt_xe <-
   df |>
   ggplot2::ggplot() +
   ggplot2::aes(x = x_e, y = y) +
   ggplot2::geom_point(size = 0.2) +
-  ggplot2::theme_bw()
+  ggplot2::theme_bw() +
+  ggplot2::labs(x = "X", y = "Y")
 
 plt_xz <-
   df |>
   ggplot2::ggplot() +
   ggplot2::aes(x = x_z, y = y) +
   ggplot2::geom_point(size = 0.2) +
-  ggplot2::theme_bw()
+  ggplot2::theme_bw() +
+  ggplot2::labs(x = "Z", y = "Y")
 
 plt_x <-
   df |>
@@ -39,7 +42,7 @@ plt_x <-
   ggplot2::ggplot() +
   ggplot2::aes(x = x_z, y = x_e) +
   ggplot2::geom_point(size = 0.2) +
-  ggplot2::theme_bw()
+  ggplot2::labs(x = "Z", y = "X")
 
 hist_xe <-
   df |>
@@ -47,7 +50,8 @@ hist_xe <-
   ggplot2::ggplot() +
   ggplot2::aes(x_e) +
   ggplot2::geom_histogram(bins = 50, color = "black", fill = "lightgray") +
-  ggplot2::theme_bw()
+  ggplot2::theme_bw() +
+  ggplot2::labs(x = "X")
 
 hist_xz <-
   df |>
@@ -55,7 +59,8 @@ hist_xz <-
   ggplot2::ggplot() +
   ggplot2::aes(x_z) +
   ggplot2::geom_histogram(bins = 50, color = "black", fill = "lightgray") +
-  ggplot2::theme_bw()
+  ggplot2::theme_bw() +
+  ggplot2::labs(x = "Z")
 
 design <- "AAAAAA
            BBCCDD
