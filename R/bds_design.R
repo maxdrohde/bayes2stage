@@ -41,7 +41,7 @@ get_blups <- function(dataset,
   return(out)
 }
 
-#' Set x_e to missing based on an BDS design
+#' Set x to missing based on an BDS design
 #'
 #' @param dataset Dataset to use
 #' @param fixed_effects_formula Formula for the fixed-effects when fitting the model to estimate BLUPs
@@ -52,7 +52,7 @@ get_blups <- function(dataset,
 #' @param prop_high What proportion to sample from the High category?
 #' @param prop_middle What proportion to sample from the Middle category?
 #' @param prop_low What proportion to sample from the Low category?
-#' @return A dataset where the x_e values are selected based on an BDS design
+#' @return A dataset where the x values are selected based on an BDS design
 #' @export
 bds_design <- function(dataset,
                        fixed_effects_formula,
@@ -66,7 +66,7 @@ bds_design <- function(dataset,
 
   stopifnot("Choose either 'intercept' or 'slope' as `sampling_type`" = sampling_type %in% c("intercept", "slope"))
   stopifnot("Strata proportions must sum to 1" = prop_high + prop_middle + prop_low == 1)
-  stopifnot("x_e must be a variable in the data" = ("x_e" %in% names(dataset)))
+  stopifnot("x must be a variable in the data" = ("x" %in% names(dataset)))
   stopifnot("Number of subjects sampled must be a whole number" = is.wholenumber(sampling_N))
 
   blups <-
@@ -106,9 +106,9 @@ bds_design <- function(dataset,
                     middle_ids,
                     low_ids)
 
-  # If not chosen for stage 2, set x_e to missing
+  # If not chosen for stage 2, set x to missing
   stage2_df <- dataset
-  stage2_df[!(stage2_df$id %in% selected_ids),]$x_e <- NA
+  stage2_df[!(stage2_df$id %in% selected_ids),]$x <- NA
 
   # Mark which subjects were selected
   stage2_df$selected <- FALSE

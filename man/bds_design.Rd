@@ -2,7 +2,7 @@
 % Please edit documentation in R/bds_design.R
 \name{bds_design}
 \alias{bds_design}
-\title{Set x_e to missing based on an BDS design}
+\title{Set x to missing based on an BDS design}
 \usage{
 bds_design(
   dataset,
@@ -36,8 +36,8 @@ bds_design(
 \item{prop_low}{What proportion to sample from the Low category?}
 }
 \value{
-A dataset where the x_e values are selected based on an BDS design
+A dataset where the x values are selected based on an BDS design
 }
 \description{
-Set x_e to missing based on an BDS design
+Set x to missing based on an BDS design
 }
