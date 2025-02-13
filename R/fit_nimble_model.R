@@ -108,7 +108,7 @@ fit_nimble_model <-
     #   mcmcConf$addSampler(target = param, type = "RW", control = list(log = TRUE))
     # }
 
-    Cmcmc <- compileNimble(mcmc)
+    Cmcmc <- compileNimble(mcmc, project = model)
 
     # Run MCMC
     samples <-
