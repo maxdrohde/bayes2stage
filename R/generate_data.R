@@ -34,7 +34,7 @@ generate_data <-
                       Sigma = sigma)
 
       # Generate covariate values
-      t <- 0:(M-1)
+      t <- (0:(M-1)) / (M-1)
       z <- rnorm(n = 1, mean = 0, sd = 1)
       x <-
         gamma0 +

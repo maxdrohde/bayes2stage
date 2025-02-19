@@ -20,7 +20,7 @@ plt_t <-
   ggplot2::theme_bw() +
   ggplot2::labs(x = "Time", y = "Y")
 
-plt_x <-
+plt_xy <-
   dataset |>
   ggplot2::ggplot() +
   ggplot2::aes(x = x, y = y) +
@@ -28,7 +28,7 @@ plt_x <-
   ggplot2::theme_bw() +
   ggplot2::labs(x = "X", y = "Y")
 
-plt_z <-
+plt_zy <-
   dataset |>
   ggplot2::ggplot() +
   ggplot2::aes(x = z, y = y) +
@@ -36,12 +36,13 @@ plt_z <-
   ggplot2::theme_bw() +
   ggplot2::labs(x = "Z", y = "Y")
 
-plt_x <-
+plt_zx <-
   dataset |>
   dplyr::filter(t == 1) |>
   ggplot2::ggplot() +
   ggplot2::aes(x = z, y = x) +
   ggplot2::geom_point(size = 0.2) +
+  ggplot2::theme_bw() +
   ggplot2::labs(x = "Z", y = "X")
 
 hist_x <-
@@ -69,9 +70,9 @@ design <- "AAAAAA
 combined <-
   patchwork::wrap_plots(
              A = plt_t,
-             B = plt_x,
-             C = plt_z,
-             D = plt_x,
+             B = plt_xy,
+             C = plt_zy,
+             D = plt_zx,
              E = hist_x,
              F = hist_z,
              design = design)
