@@ -51,7 +51,8 @@ ods_design <- function(dataset,
 
   ods <- get_ods(dataset, sampling_type)
 
-  sampling_feature <- as.numeric(ods[,2])
+  # Extract 2nd column (either intercept or slope)
+  sampling_feature <- ods[[2]]
 
   # Categorize  into high, middle, and low strata based on quantiles
   ods$category <-
