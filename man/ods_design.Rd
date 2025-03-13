@@ -2,26 +2,29 @@
 % Please edit documentation in R/ods_design.R
 \name{ods_design}
 \alias{ods_design}
-\title{Set x_e to missing based on an ODS design}
+\title{Set x to missing based on an ODS design}
 \usage{
 ods_design(
   dataset,
-  type,
-  cutoff_high = 0.9,
-  cutoff_low = 0.1,
-  prop_high = 0.1,
-  prop_middle = 0.05,
-  prop_low = 0.1
+  sampling_type,
+  cutoff_high,
+  cutoff_low,
+  sampling_N,
+  prop_high,
+  prop_middle,
+  prop_low
 )
 }
 \arguments{
 \item{dataset}{Dataset to use}
 
-\item{type}{Which type of sampling? "intercept" or "slope"}
+\item{sampling_type}{Which type of sampling? "intercept" or "slope"}
 
 \item{cutoff_high}{Which quantile to use as the cutoff for the High category}
 
 \item{cutoff_low}{Which quantile to use as the cutoff for the Low category}
+
+\item{sampling_N}{How many subjects should be sampled?}
 
 \item{prop_high}{What proportion to sample from the High category?}
 
@@ -30,8 +33,8 @@ ods_design(
 \item{prop_low}{What proportion to sample from the Low category?}
 }
 \value{
-A dataset where the x_e values are selected based on an ODS design
+A dataset where the x values are selected based on an ODS design
 }
 \description{
-Set x_e to missing based on an ODS design
+Set x to missing based on an ODS design
 }

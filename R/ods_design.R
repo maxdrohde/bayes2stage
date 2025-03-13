@@ -1,105 +1,96 @@
-get_ods <- function(dataset, type){
+get_ods <- function(dataset, sampling_type){
 
-  # Nest by ID
-  # then fit lm() to each row
+  # Convert to data.table
+  dataset <- data.table::as.data.table(dataset)
+
   lms <-
-    dataset |>
-    dplyr::nest_by(id) |>
-    dplyr::summarise(lm_output = list(stats::lm("y ~ t", data = data)),
-                     .groups = "drop")
+    dataset[,
+            .(lm_coef = list(lm(y ~ t, data = .SD)$coefficients)),
+            by = id]
 
-  if (type == "intercept") {
-    # Extract the intercept from each fitted lm() object
-    lms$intercept <-
-      purrr::map_dbl(lms$lm_output,
-                     ~.x$coefficients[["(Intercept)"]])
-
-    out <-
-      lms |>
-      dplyr::select(id, intercept)
+  if (sampling_type == "intercept") {
+    # Create an intercept column for each subject
+    lms[, `:=`(intercept = lm_coef[[1]][["(Intercept)"]]), by = id]
+    out <- lms[, .(id, intercept)]
   }
 
-  if (type == "slope") {
-    # Extract the slope from each fitted lm() object
-    lms$slope <-
-      purrr::map_dbl(lms$lm_output,
-                     ~.x$coefficients[["t"]])
-
-    out <-
-      lms |>
-      dplyr::select(id, slope)
+  if (sampling_type == "slope") {
+    # Create a slope column for each subject
+    lms[, `:=`(slope = lm_coef[[1]][["t"]]), by = id]
+    out <- lms[, .(id, slope)]
   }
 
-  return(as.data.frame(out))
+  return(tibble::as_tibble(out))
 }
 
-
-#' Set x_e to missing based on an ODS design
+#' Set x to missing based on an ODS design
 #'
 #' @param dataset Dataset to use
-#' @param type Which type of sampling? "intercept" or "slope"
+#' @param sampling_type Which type of sampling? "intercept" or "slope"
 #' @param cutoff_high Which quantile to use as the cutoff for the High category
 #' @param cutoff_low Which quantile to use as the cutoff for the Low category
+#' @param sampling_N How many subjects should be sampled?
 #' @param prop_high What proportion to sample from the High category?
 #' @param prop_middle What proportion to sample from the Middle category?
 #' @param prop_low What proportion to sample from the Low category?
-#' @return A dataset where the x_e values are selected based on an ODS design
+#' @return A dataset where the x values are selected based on an ODS design
 #' @export
 ods_design <- function(dataset,
-                       type,
-                       cutoff_high = 0.9,
-                       cutoff_low = 0.1,
-                       prop_high = 0.1,
-                       prop_middle = 0.05,
-                       prop_low = 0.1){
+                       sampling_type,
+                       cutoff_high,
+                       cutoff_low,
+                       sampling_N,
+                       prop_high,
+                       prop_middle,
+                       prop_low){
 
-  ##############################################################################
-  # Check if proper names in dataset
-  col_names <- names(dataset)
-  stopifnot("y" %in% col_names)
-  stopifnot("t" %in% col_names)
-  stopifnot("id" %in% col_names)
-  stopifnot("x_e" %in% col_names)
+  stopifnot("Choose either 'intercept' or 'slope' as `sampling_type`" = sampling_type %in% c("intercept", "slope"))
+  stopifnot("Strata proportions must sum to 1" = prop_high + prop_middle + prop_low == 1)
+  stopifnot("x must be a variable in the data" = ("x" %in% names(dataset)))
+  stopifnot("Number of subjects sampled must be a whole number" = is.wholenumber(sampling_N))
 
-  stopifnot("Choose either 'intercept' or 'slope' as `type`" = type %in% c("intercept", "slope"))
-  ##############################################################################
+  ods <- get_ods(dataset, sampling_type)
 
-  ods <- get_ods(dataset, type)
-  G <- nrow(ods)
-
-  target <- as.numeric(ods[,2])
+  sampling_feature <- as.numeric(ods[,2])
 
   # Categorize  into high, middle, and low strata based on quantiles
   ods$category <-
-    cut(target,
+    cut(sampling_feature,
         breaks = c(-Inf,
-                   stats::quantile(target, cutoff_low),
-                   stats::quantile(target, cutoff_high),
+                   stats::quantile(sampling_feature, cutoff_low),
+                   stats::quantile(sampling_feature, cutoff_high),
                    Inf),
         labels = c("Low", "Middle", "High"))
 
+  size_high <- sampling_N * prop_high
+  size_middle <- sampling_N * prop_middle
+  size_low <- sampling_N * prop_low
+
   # Sample IDs from the high, middle, and low strata
   high_ids <- sample(dplyr::filter(ods, category == "High")$id,
-                     size = G * prop_high,
+                     size = size_high,
                      replace = FALSE)
   middle_ids <- sample(dplyr::filter(ods, category == "Middle")$id,
-                       size = G * prop_middle,
+                       size = size_middle,
                        replace = FALSE)
   low_ids <- sample(dplyr::filter(ods, category == "Low")$id,
-                    size = G * prop_low,
+                    size = size_low,
                     replace = FALSE)
 
-  # IDs chosen for stage 2
-  selected_ids <- c(high_ids, middle_ids, low_ids)
+  # Subjects IDs chosen for sampling
+  selected_ids <- c(high_ids,
+                    middle_ids,
+                    low_ids)
 
-  # If not chosen for stage 2, set x_e to missing
+  # If not chosen for stage 2, set x to missing
   stage2_df <- dataset
-  stage2_df[!(stage2_df$id %in% selected_ids),]$x_e <- NA
+  stage2_df[!(stage2_df$id %in% selected_ids),]$x <- NA
 
-  # Mark selected = TRUE if chosen for stage 2 collection
-  stage2_df$selected <- "No"
-  stage2_df[(stage2_df$id %in% selected_ids),]$selected <- "Yes"
+  # Mark which subjects were selected
+  stage2_df$selected <- FALSE
+  stage2_df[(stage2_df$id %in% selected_ids),]$selected <- TRUE
 
+  # Merge in the information on the estimated intercepts / slopes
   stage2_df <- dplyr::left_join(stage2_df,
                                 ods,
                                 by = "id")

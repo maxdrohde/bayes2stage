@@ -2,7 +2,7 @@
 % Please edit documentation in R/srs_design.R
 \name{srs_design}
 \alias{srs_design}
-\title{Set x_e to missing based on an SRS design}
+\title{Set x to missing based on an SRS design}
 \usage{
 srs_design(dataset, sampling_N)
 }
@@ -12,8 +12,8 @@ srs_design(dataset, sampling_N)
 \item{sampling_N}{What number of subjects to sample?}
 }
 \value{
-A dataset where the x_e values are selected based on an SRS design
+A dataset where the x values are selected based on an SRS design
 }
 \description{
-Set x_e to missing based on an SRS design
+Set x to missing based on an SRS design
 }
