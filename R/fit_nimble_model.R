@@ -40,10 +40,10 @@ fit_nimble_model <-
       # Non-centered parameterization for random effects:
       for(g in 1:G) {
         b0_raw[g] ~ dnorm(0, 1)          # latent standard normal for random intercept
-        b0[g] <- b0_raw[g] * sd_b0        # scale to obtain b0
+        b0[g] <- b0_raw[g] * sd_b0       # scale to obtain b0
 
         b1_raw[g] ~ dnorm(0, 1)          # latent standard normal for random slope
-        b1[g] <- b1_raw[g] * sd_b1        # scale to obtain b1
+        b1[g] <- b1_raw[g] * sd_b1       # scale to obtain b1
       }
 
       ### Priors

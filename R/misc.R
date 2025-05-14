@@ -23,3 +23,14 @@ mcmc_summary <- function(mcmc_output,
 
   return(out)
 }
+
+#' @export
+check_cols <- function(df, required_cols) {
+  missing <- setdiff(required_cols, names(df))
+  if (length(missing)) {
+    stop("`df` is missing required column",
+         if (length(missing) > 1) "s" else "", ": ",
+         paste(missing, collapse = ", "), call. = FALSE)
+  }
+  invisible(TRUE)
+}

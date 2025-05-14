@@ -17,6 +17,8 @@ Imports:
     data.table,
     dplyr,
     MASS,
+    nimble,
+    nimbleMacros,
     purrr
 URL: https://github.com/maxdrohde/bayes2stage
 BugReports: https://github.com/maxdrohde/bayes2stage/issues

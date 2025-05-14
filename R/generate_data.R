@@ -9,13 +9,22 @@ generate_data <-
            M = 5,
            alpha_main = 1, beta_x = 1, beta_z = 1,
            beta_t = 2, beta_t_xe_interaction = 0.3,
-           error_sd = 4, error_type = "normal",
+           error_sd = 4,
+           x_dist = "normal", x_size = NULL, x_disp_param = NULL,
            rand_intercept_sd = 3, rand_slope_sd = 1, rand_eff_corr = 0,
            gamma0 = 1, gamma1 = 1, gamma2 = 0, gamma_sd = 2) {
 
     # Checks
     # stopifnot("N must be divisible by the length of Ms" = (N / length(Ms)) == as.integer(N / length(Ms)))
-    stopifnot("Error type not supported" = error_type %in% c("normal", "uniform", "exponential"))
+    stopifnot("X distribution not supported" = x_dist %in% c("normal", "poisson", "binomial", "negative_binomial"))
+
+    if (x_dist %in% c("binomial", "beta_binomial")) {
+      stopifnot("Must specify x_size for binomial or beta binomial distributions" = !is.null(x_size))
+    }
+
+    if (x_dist %in% c("negative_binomial")) {
+      stopifnot("Must specify x_disp_param for negative binomial distribution" = !is.null(x_disp_param))
+    }
 
     # List to store the data frame for each subject
     records <- vector(mode = "list", length = N)
@@ -35,19 +44,21 @@ generate_data <-
 
       # Generate covariate values
       t <- (0:(M-1)) / (M-1)
+      # Z is standard normal
       z <- rnorm(n = 1, mean = 0, sd = 1)
-      x <-
+
+      eta <-
         gamma0 +
         gamma1*z +
         gamma2*z^2
 
       x <-
-        x +
         switch(
-          error_type,
-          normal = stats::rnorm(n = 1, mean = 0, sd = gamma_sd),
-          uniform = stats::runif(n = 1, min = -gamma_sd * sqrt(3), max = gamma_sd * sqrt(3)),
-          exponential = stats::rexp(n = 1, rate = 1 / gamma_sd) - (gamma_sd)
+          x_dist,
+          normal = stats::rnorm(n = 1, mean = eta, sd = gamma_sd),
+          poisson = stats::rpois(n = 1, lambda = exp(eta)),
+          binomial = stats::rbinom(n = 1, size = x_size, prob = plogis(eta)),
+          negative_binomial = stats::rnbinom(n = 1, mu = exp(eta), size = x_disp_param)
         )
 
       # Generate outcome
