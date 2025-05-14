@@ -10,13 +10,24 @@ generate_data <-
            alpha_main = 1, beta_x = 1, beta_z = 1,
            beta_t = 2, beta_t_xe_interaction = 0.3,
            error_sd = 4,
-           x_dist = "normal", x_size = NULL, x_disp_param = NULL,
+           x_dist = c("normal",
+                      "poisson",
+                      "binomial",
+                      "negative_binomial",
+                      "beta_binomial"),
+           x_size = NULL,
+           x_disp_param = NULL,
+           x_beta_shape_vec = NULL,
            rand_intercept_sd = 3, rand_slope_sd = 1, rand_eff_corr = 0,
            gamma0 = 1, gamma1 = 1, gamma2 = 0, gamma_sd = 2) {
 
     # Checks
     # stopifnot("N must be divisible by the length of Ms" = (N / length(Ms)) == as.integer(N / length(Ms)))
-    stopifnot("X distribution not supported" = x_dist %in% c("normal", "poisson", "binomial", "negative_binomial"))
+    stopifnot("X distribution not supported" = x_dist %in% c("normal",
+                                                             "poisson",
+                                                             "binomial",
+                                                             "negative_binomial",
+                                                             "beta_binomial"))
 
     if (x_dist %in% c("binomial", "beta_binomial")) {
       stopifnot("Must specify x_size for binomial or beta binomial distributions" = !is.null(x_size))
@@ -24,6 +35,10 @@ generate_data <-
 
     if (x_dist %in% c("negative_binomial")) {
       stopifnot("Must specify x_disp_param for negative binomial distribution" = !is.null(x_disp_param))
+    }
+
+    if (x_dist %in% c("beta_binomial")) {
+      stopifnot("Must specify x_beta_shape_vec for beta binomial distribution" = !is.null(x_beta_shape_vec))
     }
 
     # List to store the data frame for each subject
@@ -58,7 +73,12 @@ generate_data <-
           normal = stats::rnorm(n = 1, mean = eta, sd = gamma_sd),
           poisson = stats::rpois(n = 1, lambda = exp(eta)),
           binomial = stats::rbinom(n = 1, size = x_size, prob = plogis(eta)),
-          negative_binomial = stats::rnbinom(n = 1, mu = exp(eta), size = x_disp_param)
+          negative_binomial = stats::rnbinom(n = 1, mu = exp(eta), size = x_disp_param),
+          beta_binomial = nimbleEcology::rBetaBinom_s(n = 1,
+                                                      N = x_size,
+                                                      shape1 = x_beta_shape_vec[[1]],
+                                                      shape2 = x_beta_shape_vec[[2]],
+                                                      len = 1L)
         )
 
       # Generate outcome

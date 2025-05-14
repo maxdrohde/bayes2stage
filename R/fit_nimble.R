@@ -114,7 +114,8 @@ fit_model <- function(df,
                       nchain = 4,
                       niter = 10000,
                       nburnin = 2000,
-                      x_size = NULL
+                      x_size = NULL,
+                      printing = FALSE
                       ){
 
   if (imputation_model_distribution %in% c("binomial", "beta_binomial")) {
@@ -168,7 +169,16 @@ fit_model <- function(df,
                         nchain = nchain,
                         niter = niter,
                         nburnin = nburnin,
+                        WAIC = TRUE,
                         samplesAsCodaMCMC = TRUE)
 
-  return(samples)
+  if (printing) {
+    print(mcmc_summary(samples$samples, dataset_id = "print"))
+    print(samples$WAIC)
+  }
+
+  out <- samples$samples
+  attr(out, "WAIC") <- samples$WAIC$WAIC
+
+  return(out)
 }
