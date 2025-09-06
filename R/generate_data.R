@@ -17,7 +17,6 @@ generate_data <-
                       "beta_binomial"),
            x_size = NULL,
            x_disp_param = NULL,
-           x_beta_shape_vec = NULL,
            rand_intercept_sd = 3, rand_slope_sd = 1, rand_eff_corr = 0,
            gamma0 = 1, gamma1 = 1, gamma2 = 0, gamma_sd = 2) {
 
@@ -33,12 +32,8 @@ generate_data <-
       stopifnot("Must specify x_size for binomial or beta binomial distributions" = !is.null(x_size))
     }
 
-    if (x_dist %in% c("negative_binomial")) {
-      stopifnot("Must specify x_disp_param for negative binomial distribution" = !is.null(x_disp_param))
-    }
-
-    if (x_dist %in% c("beta_binomial")) {
-      stopifnot("Must specify x_beta_shape_vec for beta binomial distribution" = !is.null(x_beta_shape_vec))
+    if (x_dist %in% c("negative_binomial", "beta_binomial")) {
+      stopifnot("Must specify x_disp_param for negative binomial and beta binomial distribution" = !is.null(x_disp_param))
     }
 
     # List to store the data frame for each subject
@@ -74,11 +69,10 @@ generate_data <-
           poisson = stats::rpois(n = 1, lambda = exp(eta)),
           binomial = stats::rbinom(n = 1, size = x_size, prob = plogis(eta)),
           negative_binomial = stats::rnbinom(n = 1, mu = exp(eta), size = x_disp_param),
-          beta_binomial = nimbleEcology::rBetaBinom_s(n = 1,
-                                                      N = x_size,
-                                                      shape1 = x_beta_shape_vec[[1]],
-                                                      shape2 = x_beta_shape_vec[[2]],
-                                                      len = 1L)
+          beta_binomial = extraDistr::rbbinom(n = 1,
+                                              size = x_size,
+                                              alpha = x_disp_param * plogis(eta),
+                                              beta = x_disp_param * (1 - plogis(eta)))
         )
 
       # Generate outcome

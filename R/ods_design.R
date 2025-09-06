@@ -84,12 +84,7 @@ ods_design <- function(dataset,
                     low_ids)
 
   # If not chosen for stage 2, set x to missing
-  stage2_df <- dataset
-  stage2_df[!(stage2_df$id %in% selected_ids),]$x <- NA
-
-  # Mark which subjects were selected
-  stage2_df$selected <- FALSE
-  stage2_df[(stage2_df$id %in% selected_ids),]$selected <- TRUE
+  stage2_df <- set_missing(dataset, selected_ids)
 
   # Merge in the information on the estimated intercepts / slopes
   stage2_df <- dplyr::left_join(stage2_df,

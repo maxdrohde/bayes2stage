@@ -1,6 +1,7 @@
 #' @import nimble
 #' @import nimbleEcology
 #' @import nimbleMacros
+#'
 
 # Create the NIMBLE model line for the main model
 # Allows the user to input any number of covariates
@@ -29,11 +30,11 @@ create_imputation_model_linpred <- function(imputation_model_covariates){
 create_imputation_model_distribution <- function(imputation_model_distribution =
                                                    c("normal",
                                                      "binomial",
+                                                     "beta_binomial",
                                                      "negative_binomial",
                                                      "poisson")) {
   imputation_model_distribution <- match.arg(imputation_model_distribution)
 
-  ## FIXME: ADD THE OTHER DISTRIBUTIONS OTHER THAN NORMAL
   switch(imputation_model_distribution,
          normal = {
            line =
@@ -72,12 +73,24 @@ create_imputation_model_distribution <- function(imputation_model_distribution =
            }
            "
          },
-         # FIXME: NEED TO FIX THIS
          beta_binomial = {
+        # https://cran.r-project.org/web/packages/brms/vignettes/brms_customfamilies.html#the-beta-binomial-distribution
            line =
              "
            {
-             x[1:G] ~ FORLOOP(dbinom(prob = expit(eta[1:G]), size = x_size))
+
+           for(g in 1:G) {
+                p[g] <- expit(eta[g])
+                s1[g] <- phi * p[g]
+                s2[g]  <- phi * (1 - p[g])
+
+                x[g] ~ dBetaBinom_One(N = x_size,
+                                      shape1 = s1[g],
+                                      shape2 = s2[g])
+            }
+
+              phi ~ dunif(0, 5)
+
            }
            "
          }
