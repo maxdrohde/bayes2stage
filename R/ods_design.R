@@ -12,12 +12,12 @@ get_ods <- function(dataset, sampling_type){
     # Create an intercept column for each subject
     lms[, `:=`(intercept = lm_coef[[1]][["(Intercept)"]]), by = id]
     out <- lms[, .(id, intercept)]
-  }
-
-  if (sampling_type == "slope") {
+  } else if (sampling_type == "slope") {
     # Create a slope column for each subject
     lms[, `:=`(slope = lm_coef[[1]][["t"]]), by = id]
     out <- lms[, .(id, slope)]
+  } else {
+    stop("sampling_type must be 'intercept' or 'slope'")
   }
 
   return(tibble::as_tibble(out))
@@ -63,9 +63,20 @@ ods_design <- function(dataset,
                    Inf),
         labels = c("Low", "Middle", "High"))
 
+  # Compute sampling sizes for each strata
   size_high <- sampling_N * prop_high
   size_middle <- sampling_N * prop_middle
   size_low <- sampling_N * prop_low
+
+  # Check sizes
+  sizes <- c(size_high, size_middle, size_low)
+  stopifnot("Sample sizes must be positive whole numbers" =
+              all(is_positive_integer(sizes)))
+
+  # Convert sizes to integer
+  size_high <- as.integer(size_high)
+  size_middle <- as.integer(size_middle)
+  size_low <- as.integer(size_low)
 
   # Sample IDs from the high, middle, and low strata
   high_ids <- sample(dplyr::filter(ods, category == "High")$id,

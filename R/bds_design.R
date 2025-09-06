@@ -1,12 +1,14 @@
-# Given a dataset and an lmer formula, return a data.frame
+# Given a dataset and an `lmer` formula, return a data.frame
 # of the BLUPs for each subject
 get_blups <- function(dataset,
                       fixed_effects_formula,
                       sampling_type){
 
-  # Data checks
+  # Check that the required variables are in the data
   stopifnot("t must be a variable in the data" = ("t" %in% names(dataset)))
   stopifnot("id must be a variable in the data" = ("id" %in% names(dataset)))
+
+  # Check that the model is specified correctly
   stopifnot("t must be a variable in the model" = ("t" %in% all.vars(fixed_effects_formula)))
 
   # Add the random-effects to the user supplied fixed-effects formula
@@ -18,22 +20,21 @@ get_blups <- function(dataset,
   mod <- lme4::lmer(formula = lmer_formula,
                     data = dataset)
 
-  # Extract the intercept BLUPs
+  # Extact the BLUPs
   if (sampling_type == "intercept") {
     out <-
       lme4::ranef(mod) |>
       as.data.frame() |>
       dplyr::filter(term == "(Intercept)") |>
       dplyr::select(id = grp, intercept = condval)
-  }
-
-  # Extract the slope BLUPs
-  if (sampling_type == "slope") {
+  } else if (sampling_type == "slope") {
     out <-
       lme4::ranef(mod) |>
       as.data.frame() |>
       dplyr::filter(term == "t") |>
-      dplyr::select(id = grp, slope = condval)
+      dplyr::select(id = grp, intercept = condval)
+  } else {
+    stop("sampling_type must be 'intercept' or 'slope'")
   }
 
   out$id <- as.integer(as.character(out$id))
@@ -67,7 +68,7 @@ bds_design <- function(dataset,
   stopifnot("Choose either 'intercept' or 'slope' as `sampling_type`" = sampling_type %in% c("intercept", "slope"))
   stopifnot("Strata proportions must sum to 1" = prop_high + prop_middle + prop_low == 1)
   stopifnot("x must be a variable in the data" = ("x" %in% names(dataset)))
-  stopifnot("Number of subjects sampled must be a whole number" = is.wholenumber(sampling_N))
+  stopifnot("Number of subjects sampled must be a whole number" = is_positive_integer(sampling_N))
 
   blups <-
     get_blups(dataset,
@@ -86,9 +87,20 @@ bds_design <- function(dataset,
                    Inf),
         labels = c("Low", "Middle", "High"))
 
+  # Compute sampling sizes for each strata
   size_high <- sampling_N * prop_high
   size_middle <- sampling_N * prop_middle
   size_low <- sampling_N * prop_low
+
+  # Check sizes
+  sizes <- c(size_high, size_middle, size_low)
+  stopifnot("Sample sizes must be positive whole numbers" =
+              all(is_positive_integer(sizes)))
+
+  # Convert sizes to integer
+  size_high <- as.integer(size_high)
+  size_middle <- as.integer(size_middle)
+  size_low <- as.integer(size_low)
 
   # Sample IDs from the high, middle, and low strata
   high_ids <- sample(dplyr::filter(blups, category == "High")$id,

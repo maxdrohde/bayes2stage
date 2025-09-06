@@ -1,5 +1,9 @@
 is.wholenumber <- function(x, tol = .Machine$double.eps^0.5)  abs(x - round(x)) < tol
 
+is_positive_integer <- function(x) {
+  is.numeric(x) & is.finite(x) & x > 0 & is.wholenumber(x)
+}
+
 #' Plot / Summarize MCMC Output
 #' @export
 check_mcmc <- function(mcmc_output){

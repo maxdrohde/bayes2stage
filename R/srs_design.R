@@ -7,7 +7,7 @@
 srs_design <- function(dataset, N){
 
   # Check if arguments have correct type
-  stopifnot("Number of subjects sampled must be a whole number" = is.wholenumber(N))
+  stopifnot("Number of subjects sampled must be integer" = is_positive_integer(N))
 
   # Check if required variables are present
   stopifnot("id must be a variable in the data" = ("id" %in% names(dataset)))
