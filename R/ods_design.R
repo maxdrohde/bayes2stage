@@ -5,7 +5,7 @@ get_ods <- function(dataset, sampling_type){
 
   lms <-
     dataset[,
-            .(lm_coef = list(lm(y ~ t, data = .SD)$coefficients)),
+            .(lm_coef = list(stats::lm(y ~ t, data = .SD)$coefficients)),
             by = id]
 
   if (sampling_type == "intercept") {

@@ -20,8 +20,7 @@ generate_data <-
            rand_intercept_sd = 3, rand_slope_sd = 1, rand_eff_corr = 0,
            gamma0 = 1, gamma1 = 1, gamma2 = 0, gamma_sd = 2) {
 
-    # Checks
-    # stopifnot("N must be divisible by the length of Ms" = (N / length(Ms)) == as.integer(N / length(Ms)))
+    # Checks ###################################################################
     stopifnot("X distribution not supported" = x_dist %in% c("normal",
                                                              "poisson",
                                                              "binomial",
@@ -35,6 +34,7 @@ generate_data <-
     if (x_dist %in% c("negative_binomial", "beta_binomial")) {
       stopifnot("Must specify x_disp_param for negative binomial and beta binomial distribution" = !is.null(x_disp_param))
     }
+    ############################################################################
 
     # List to store the data frame for each subject
     records <- vector(mode = "list", length = N)
@@ -55,7 +55,7 @@ generate_data <-
       # Generate covariate values
       t <- (0:(M-1)) / (M-1)
       # Z is standard normal
-      z <- rnorm(n = 1, mean = 0, sd = 1)
+      z <- stats::rnorm(n = 1, mean = 0, sd = 1)
 
       eta <-
         gamma0 +
@@ -67,12 +67,12 @@ generate_data <-
           x_dist,
           normal = stats::rnorm(n = 1, mean = eta, sd = gamma_sd),
           poisson = stats::rpois(n = 1, lambda = exp(eta)),
-          binomial = stats::rbinom(n = 1, size = x_size, prob = plogis(eta)),
+          binomial = stats::rbinom(n = 1, size = x_size, prob = stats::plogis(eta)),
           negative_binomial = stats::rnbinom(n = 1, mu = exp(eta), size = x_disp_param),
           beta_binomial = extraDistr::rbbinom(n = 1,
                                               size = x_size,
-                                              alpha = x_disp_param * plogis(eta),
-                                              beta = x_disp_param * (1 - plogis(eta)))
+                                              alpha = x_disp_param * stats::plogis(eta),
+                                              beta = x_disp_param * (1 - stats::plogis(eta)))
         )
 
       # Generate outcome

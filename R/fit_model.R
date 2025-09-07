@@ -1,7 +1,8 @@
 #' @import nimble
 #' @import nimbleEcology
 #' @import nimbleMacros
-#'
+
+nimbleOptions("enableWAIC" = TRUE)
 
 # Create the NIMBLE model line for the main model
 # Allows the user to input any number of covariates
@@ -12,7 +13,13 @@ create_main_model_linpred <- function(main_model_covariates){
     purrr::map_chr(main_model_covariates, \(x) glue::glue("{x}[id[1:N]]")) |>
     paste0(collapse = " + ")
 
+  # CENTERED - CORRELATED RE
   line <- glue::glue("mu[1:N] <- LINPRED(~ x[id[1:N]] + {expanded_covariates} + t[1:N] + t[1:N]:x[id[1:N]] + (t[1:N]|id_factor[1:N]), coefPrefix=beta_)")
+
+  # NONCENTERED - CORRELATED RE
+  # line <- glue::glue("mu[1:N] <- LINPRED(~ x[id[1:N]] + {expanded_covariates} + t[1:N] + t[1:N]:x[id[1:N]] + (t[1:N]|id_factor[1:N]), coefPrefix=beta_, noncentered=TRUE)")
+
+  # NONCENTERED - UNCORRELATED RE
   # line <- glue::glue("mu[1:N] <- LINPRED(~ x[id[1:N]] + {expanded_covariates} + t[1:N] + t[1:N]:x[id[1:N]] + (t[1:N]||id_factor[1:N]), coefPrefix=beta_, noncentered=TRUE)")
   return(rlang::parse_expr(line))
 }
@@ -41,7 +48,7 @@ create_imputation_model_distribution <- function(imputation_model_distribution =
            "
            {
              x[1:G] ~ FORLOOP(dnorm(eta[1:G], sd = sigma_imputation))
-             sigma_imputation ~ dunif(0, 100)
+             sigma_imputation ~ T(dnorm(0, sd = 3), 0, )
            }
            "
          },
@@ -53,7 +60,7 @@ create_imputation_model_distribution <- function(imputation_model_distribution =
              mu_2[1:G] <- FORLOOP(exp(eta[1:G]))
              p[1:G] <- FORLOOP(r / (r + mu_2[1:G]))
              x[1:G] ~ FORLOOP(dnegbin(prob = p[1:G], size = r))
-             r ~ dunif(0, 100)
+             r ~ T(dnorm(0, sd = 3), 0, )
            }
            "
          },
@@ -89,7 +96,7 @@ create_imputation_model_distribution <- function(imputation_model_distribution =
                                       shape2 = s2[g])
             }
 
-              phi ~ dunif(0, 5)
+              phi ~ T(dnorm(0, sd = 2), 0, )
 
            }
            "
@@ -107,7 +114,7 @@ build_nimble_code <- function(main_model_covariates,
     nimbleCode({
       .(create_main_model_linpred(main_model_covariates))
       y[1:N] ~ FORLOOP(dnorm(mu[1:N], sd = sigma_residual))
-      sigma_residual ~ dunif(0, 100)
+      sigma_residual ~ T(dnorm(0, sd = 3), 0, )
 
       .(create_imputation_model_linpred(imputation_model_covariates))
       .(create_imputation_model_distribution(imputation_model_distribution))
@@ -124,11 +131,12 @@ fit_model <- function(df,
                       main_model_covariates,
                       imputation_model_covariates,
                       imputation_model_distribution,
-                      nchain = 4,
+                      nchains = 4,
                       niter = 10000,
                       nburnin = 2000,
                       x_size = NULL,
-                      printing = FALSE
+                      print_summary = FALSE,
+                      print_code = FALSE
                       ){
 
   if (imputation_model_distribution %in% c("binomial", "beta_binomial")) {
@@ -179,13 +187,19 @@ fit_model <- function(df,
   mod <- nimbleModel(code = code, constants = constants)
 
   samples <- nimbleMCMC(mod,
-                        nchain = nchain,
+                        nchains = nchains,
                         niter = niter,
                         nburnin = nburnin,
                         WAIC = TRUE,
                         samplesAsCodaMCMC = TRUE)
 
-  if (printing) {
+  if (print_code) {
+    cat("CODE:----------------------------------------------------------------")
+    print(mod$getCode())
+    cat("---------------------------------------------------------------------")
+  }
+
+  if (print_summary) {
     print(mcmc_summary(samples$samples, dataset_id = "print"))
     print(samples$WAIC)
   }

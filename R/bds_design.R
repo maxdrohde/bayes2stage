@@ -14,7 +14,7 @@ get_blups <- function(dataset,
   # Add the random-effects to the user supplied fixed-effects formula
   lmer_formula <-
     glue::glue("{deparse(fixed_effects_formula)} + (1 + t | id)") |>
-    as.formula()
+    stats::as.formula()
 
   # Fit the lme4 mixed-effect model to compute BLUPs
   mod <- lme4::lmer(formula = lmer_formula,

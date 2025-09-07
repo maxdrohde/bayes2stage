@@ -4,21 +4,32 @@ Version: 0.0.0.9000
 Authors@R: 
     person("Maximilian", "Rohde", , "maxdrohde@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-3731-3372"))
-Description: Provides functions for analyzing Bayesian Two-Stage Designs using Stan for model fitting. Also provides some functions for simulated data generation.
+Description: Provides functions for analyzing Bayesian Two-Stage Designs using NIMBLE for model fitting, and for generating simulated data from two-stage designs.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
+Depends:
+    R (>= 4.1.0),
+    nimble,
+    nimbleMacros,
+    nimbleEcology
 Imports: 
-    cmdstanr,
     data.table,
     dplyr,
     MASS,
-    nimble,
-    nimbleMacros,
-    purrr
+    purrr,
+    stats,
+    MCMCvis,
+    extraDistr,
+    ggplot2,
+    glue,
+    lme4,
+    patchwork,
+    rlang,
+    tibble
 URL: https://github.com/maxdrohde/bayes2stage
 BugReports: https://github.com/maxdrohde/bayes2stage/issues

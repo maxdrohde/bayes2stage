@@ -6,7 +6,7 @@
 \alias{bayes2stage-package}
 \title{bayes2stage: Bayesian Analysis of Two-Stage Designs}
 \description{
-Provides functions for analyzing Bayesian Two-Stage Designs using Stan for model fitting. Also provides some functions for simulated data generation.
+Provides functions for analyzing Bayesian Two-Stage Designs using NIMBLE for model fitting, and for generating simulated data from two-stage designs.
 }
 \seealso{
 Useful links:

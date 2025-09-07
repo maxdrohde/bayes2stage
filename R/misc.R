@@ -4,12 +4,23 @@ is_positive_integer <- function(x) {
   is.numeric(x) & is.finite(x) & x > 0 & is.wholenumber(x)
 }
 
+#' @export
+mcmc_forest <- function(mcmc_output){
+  MCMCvis::MCMCplot(mcmc_output)
+
+  if (print_to_pdf) {
+    MCMCvis::MCMCtrace(mcmc_output)
+  }
+}
+
 #' Plot / Summarize MCMC Output
 #' @export
-check_mcmc <- function(mcmc_output){
-  print(MCMCvis::MCMCsummary(mcmc_output))
-  MCMCvis::MCMCtrace(mcmc_output)
-  MCMCvis::MCMCplot(mcmc_output)
+mcmc_trace <- function(mcmc_output,
+                       print_to_pdf = FALSE){
+
+    MCMCvis::MCMCtrace(mcmc_output,
+                       pdf = print_to_pdf)
+
 }
 
 #' Extract MCMC summary

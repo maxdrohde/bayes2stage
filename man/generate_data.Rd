@@ -14,7 +14,7 @@ generate_data(
   beta_t = 2,
   beta_t_xe_interaction = 0.3,
   error_sd = 4,
-  x_dist = "normal",
+  x_dist = c("normal", "poisson", "binomial", "negative_binomial", "beta_binomial"),
   x_size = NULL,
   x_disp_param = NULL,
   rand_intercept_sd = 3,
