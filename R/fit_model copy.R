@@ -13,8 +13,14 @@ create_main_model_linpred <- function(main_model_covariates){
     purrr::map_chr(main_model_covariates, \(x) glue::glue("{x}[id[1:N]]")) |>
     paste0(collapse = " + ")
 
-  line <- glue::glue("mu[1:N] <- LINPRED(~ x[id[1:N]] + {expanded_covariates} + t[1:N] + t[1:N]:x[id[1:N]], coefPrefix=beta_)")
+  # CENTERED - CORRELATED RE
+  line <- glue::glue("mu[1:N] <- LINPRED(~ x[id[1:N]] + {expanded_covariates} + t[1:N] + t[1:N]:x[id[1:N]] + (t[1:N]|id_factor[1:N]), coefPrefix=beta_)")
 
+  # NONCENTERED - CORRELATED RE
+  # line <- glue::glue("mu[1:N] <- LINPRED(~ x[id[1:N]] + {expanded_covariates} + t[1:N] + t[1:N]:x[id[1:N]] + (t[1:N]|id_factor[1:N]), coefPrefix=beta_, noncentered=TRUE)")
+
+  # NONCENTERED - UNCORRELATED RE
+  # line <- glue::glue("mu[1:N] <- LINPRED(~ x[id[1:N]] + {expanded_covariates} + t[1:N] + t[1:N]:x[id[1:N]] + (t[1:N]||id_factor[1:N]), coefPrefix=beta_, noncentered=TRUE)")
   return(rlang::parse_expr(line))
 }
 
@@ -107,44 +113,7 @@ build_nimble_code <- function(main_model_covariates,
   modelCode <- eval(bquote(
     nimbleCode({
       .(create_main_model_linpred(main_model_covariates))
-
-
-
-
-      # --- non-centered random effects ---
-      sd_id_factor     ~ T(dnorm(0, sd = 3), 0, )
-      sd_t_id_factor   ~ T(dnorm(0, sd = 3), 0, )
-      re_sds_id_factor[1] <- sd_id_factor
-      re_sds_id_factor[2] <- sd_t_id_factor
-
-      Ustar_id_factor[1:2, 1:2] ~ dlkj_corr_cholesky(1, 2)
-
-      U_id_factor[1:2, 1:2] <- uppertri_mult_diag(
-        Ustar_id_factor[1:2, 1:2],
-        re_sds_id_factor[1:2]
-      )
-
-      Ut_id_factor[1:2, 1:2] <- t(U_id_factor[1:2, 1:2])
-
-      for (j in 1:G) {
-        z_id_factor[j, 1] ~ dnorm(0, 1)
-        z_id_factor[j, 2] ~ dnorm(0, 1)
-
-        beta_id_factor[j]     <- inprod(Ut_id_factor[1:2, 1], z_id_factor[j, 1:2])
-        beta_t_id_factor[j]   <- inprod(Ut_id_factor[1:2, 2], z_id_factor[j, 1:2])
-      }
-
-      rho_id_factor <- inprod(Ustar_id_factor[1:2, 1],
-                              Ustar_id_factor[1:2, 2])
-      # --- end non-centered random effects ---
-
-      for (i in 1:N) {
-        mu_total[i] <- mu[i] +
-          beta_id_factor[id[i]] +
-          beta_t_id_factor[id[i]] * t[i]
-      }
-
-      y[1:N] ~ FORLOOP(dnorm(mu_total[1:N], sd = sigma_residual))
+      y[1:N] ~ FORLOOP(dnorm(mu[1:N], sd = sigma_residual))
       sigma_residual ~ T(dnorm(0, sd = 3), 0, )
 
       .(create_imputation_model_linpred(imputation_model_covariates))
@@ -218,26 +187,22 @@ fit_model <- function(df,
   mod <- nimbleModel(code = code,
                      constants = constants)
 
+  # samples <- nimbleMCMC(mod,
+  #                       nchains = nchains,
+  #                       niter = niter,
+  #                       nburnin = nburnin,
+  #                       WAIC = TRUE,
+  #                       samplesAsCodaMCMC = TRUE)
+
   conf <- configureMCMC(mod,
                         enableWAIC = TRUE)
-
-  conf$resetMonitors()
-  all_nodes  <- mod$getNodeNames(stochOnly = FALSE, includeData = FALSE)
-  selected_nodes <- grep("\\[", all_nodes, value = TRUE, invert = TRUE)
-  ustar_nodes <- grep("Ustar|rho", all_nodes, value = TRUE)
-
-  keep <- union(selected_nodes, ustar_nodes)
-  conf$addMonitors(keep)
-
-  # (optional) if you want ONLY those:
-  # conf$setMonitors(beta_nodes)
 
   mcmc  <- buildMCMC(conf)
 
   Cmod  <- compileNimble(mod)
 
   Cmcmc <- compileNimble(mcmc,
-                         project = Cmod)
+                         project = mod)
 
   samples <- runMCMC(Cmcmc,
                      nchains = nchains,

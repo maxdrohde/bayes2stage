@@ -7,10 +7,6 @@ is_positive_integer <- function(x) {
 #' @export
 mcmc_forest <- function(mcmc_output){
   MCMCvis::MCMCplot(mcmc_output)
-
-  if (print_to_pdf) {
-    MCMCvis::MCMCtrace(mcmc_output)
-  }
 }
 
 #' Plot / Summarize MCMC Output
