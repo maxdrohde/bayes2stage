@@ -219,7 +219,17 @@ fit_model <- function(df,
                      constants = constants)
 
   conf <- configureMCMC(mod,
+                        print = FALSE,
                         enableWAIC = TRUE)
+
+  ##############################################################################
+
+  conf$removeSamplers(c("sd_id_factor", "sd_t_id_factor"))
+  conf$addSampler(
+    target  = c("sd_id_factor","sd_t_id_factor"),
+    type    = "RW_block",
+    control = list(adaptive = TRUE, adaptInterval = 50)
+  )
 
   conf$resetMonitors()
   all_nodes  <- mod$getNodeNames(stochOnly = FALSE, includeData = FALSE)
@@ -229,8 +239,9 @@ fit_model <- function(df,
   keep <- union(selected_nodes, ustar_nodes)
   conf$addMonitors(keep)
 
-  # (optional) if you want ONLY those:
-  # conf$setMonitors(beta_nodes)
+  ##############################################################################
+
+  conf$printSamplers()
 
   mcmc  <- buildMCMC(conf)
 
