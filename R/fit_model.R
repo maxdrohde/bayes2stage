@@ -14,8 +14,7 @@ create_main_model_linpred <- function(main_model_covariates){
     purrr::map_chr(main_model_covariates, \(x) glue::glue("{x}[id[1:N]]")) |>
     paste0(collapse = " + ")
 
-  #line <- glue::glue("mu[1:N] <- LINPRED(~ (x[id[1:N]]) + {expanded_covariates} + (t[1:N]) + (t[1:N]:x[id[1:N]]) + (t[1:N]|id_factor[1:N]), coefPrefix=beta_, priors = priors)")
-  line <- glue::glue("mu[1:N] <- LINPRED(~ x[id[1:N]] + {expanded_covariates} + t[1:N] + t[1:N]:x[id[1:N]] + (t[1:N]|id_factor[1:N]), coefPrefix=beta_, noncentered=TRUE, priors = priors)")
+  line <- glue::glue("mu[1:N] <- LINPRED(~ (x[id[1:N]]) + {expanded_covariates} + (t[1:N]) + (t[1:N]:x[id[1:N]]), coefPrefix=beta_, priors = priors)")
 
   return(rlang::parse_expr(line))
 }
@@ -111,7 +110,30 @@ build_nimble_code <- function(main_model_covariates,
     nimbleCode({
       .(create_main_model_linpred(main_model_covariates))
 
-      y[1:N] ~ FORLOOP(dnorm(mu[1:N], sd = sigma_residual))
+      # Random effects standard deviations
+      sigma_u0 ~ dexp(rate = 1)  # SD for random intercepts
+      sigma_u1 ~ dexp(rate = 1)  # SD for random slopes
+
+      # Correlation between random intercept and slope
+      rho ~ dunif(-0.99, 0.99)
+
+      # Non-centered random effects (raw parameters)
+      for (j in 1:G) {
+        u0_raw[j] ~ dnorm(0, sd = 1)  # Raw random intercept
+        u1_raw[j] ~ dnorm(0, sd = 1)  # Raw random slope
+      }
+
+      # Transform to centered parameterization
+      for (j in 1:G) {
+        u0[j] <- sigma_u0 * u0_raw[j]
+        u1[j] <- sigma_u1 * (rho * u0_raw[j] + sqrt(1 - rho^2) * u1_raw[j])
+      }
+
+      for (i in 1:N) {
+        mu_total[i] <- mu[i] + u0[id[i]] + u1[id[i]] * t[i]
+      }
+
+      y[1:N] ~ FORLOOP(dnorm(mu_total[1:N], sd = sigma_residual))
       sigma_residual ~ dexp(rate = 1)
 
       .(create_imputation_model_linpred(imputation_model_covariates))
@@ -192,20 +214,24 @@ fit_model <- function(df,
 
   mod <- nimbleModel(code = code,
                      constants = constants,
-                     buildDerivs = TRUE)
+                     buildDerivs = FALSE)
 
-  model_code <- mod$getCode()
-  print(model_code)
+  # model_code <- mod$getCode()
+  # print(model_code)
+
+  vars <- mod$getVarNames()
+  mon  <- vars[ grepl("^(beta_|gamma_|sigma_)", vars) | vars == "rho" ]
 
   conf <- configureMCMC(mod,
-                       print = FALSE,
-                       enableWAIC = TRUE)
+                        monitors = mon,
+                        print = FALSE,
+                        enableWAIC = TRUE)
 
   ##############################################################################
 
   ##############################################################################
 
-  conf$printSamplers()
+  # conf$printSamplers()
 
   mcmc  <- buildMCMC(conf)
 
