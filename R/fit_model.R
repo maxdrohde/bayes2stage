@@ -1,6 +1,7 @@
 #' @import nimble
 #' @import nimbleEcology
 #' @import nimbleMacros
+#' @import nimbleHMC
 
 nimbleOptions("enableWAIC" = TRUE)
 
@@ -13,7 +14,7 @@ create_main_model_linpred <- function(main_model_covariates){
     purrr::map_chr(main_model_covariates, \(x) glue::glue("{x}[id[1:N]]")) |>
     paste0(collapse = " + ")
 
-  line <- glue::glue("mu[1:N] <- LINPRED(~ x[id[1:N]] + {expanded_covariates} + t[1:N] + t[1:N]:x[id[1:N]], coefPrefix=beta_)")
+  line <- glue::glue("mu[1:N] <- LINPRED(~ (x[id[1:N]]) + {expanded_covariates} + (t[1:N]) + (t[1:N]:x[id[1:N]]) + (t[1:N]|id_factor[1:N]), coefPrefix=beta_, priors = priors)")
 
   return(rlang::parse_expr(line))
 }
@@ -42,7 +43,7 @@ create_imputation_model_distribution <- function(imputation_model_distribution =
            "
            {
              x[1:G] ~ FORLOOP(dnorm(eta[1:G], sd = sigma_imputation))
-             sigma_imputation ~ T(dnorm(0, sd = 3), 0, )
+             sigma_imputation ~ dexp(rate = 1)
            }
            "
          },
@@ -54,7 +55,7 @@ create_imputation_model_distribution <- function(imputation_model_distribution =
              mu_2[1:G] <- FORLOOP(exp(eta[1:G]))
              p[1:G] <- FORLOOP(r / (r + mu_2[1:G]))
              x[1:G] ~ FORLOOP(dnegbin(prob = p[1:G], size = r))
-             r ~ T(dnorm(0, sd = 3), 0, )
+             r ~ dexp(rate = 1)
            }
            "
          },
@@ -90,7 +91,7 @@ create_imputation_model_distribution <- function(imputation_model_distribution =
                                       shape2 = s2[g])
             }
 
-              phi ~ T(dnorm(0, sd = 2), 0, )
+              phi ~ dexp(rate = lambda)
 
            }
            "
@@ -102,50 +103,15 @@ create_imputation_model_distribution <- function(imputation_model_distribution =
 
 build_nimble_code <- function(main_model_covariates,
                               imputation_model_covariates,
-                              imputation_model_distribution) {
+                              imputation_model_distribution,
+                              priors = priors) {
 
   modelCode <- eval(bquote(
     nimbleCode({
       .(create_main_model_linpred(main_model_covariates))
 
-
-
-
-      # --- non-centered random effects ---
-      sd_id_factor     ~ T(dnorm(0, sd = 3), 0, )
-      sd_t_id_factor   ~ T(dnorm(0, sd = 3), 0, )
-      re_sds_id_factor[1] <- sd_id_factor
-      re_sds_id_factor[2] <- sd_t_id_factor
-
-      Ustar_id_factor[1:2, 1:2] ~ dlkj_corr_cholesky(1, 2)
-
-      U_id_factor[1:2, 1:2] <- uppertri_mult_diag(
-        Ustar_id_factor[1:2, 1:2],
-        re_sds_id_factor[1:2]
-      )
-
-      Ut_id_factor[1:2, 1:2] <- t(U_id_factor[1:2, 1:2])
-
-      for (j in 1:G) {
-        z_id_factor[j, 1] ~ dnorm(0, 1)
-        z_id_factor[j, 2] ~ dnorm(0, 1)
-
-        beta_id_factor[j]     <- inprod(Ut_id_factor[1:2, 1], z_id_factor[j, 1:2])
-        beta_t_id_factor[j]   <- inprod(Ut_id_factor[1:2, 2], z_id_factor[j, 1:2])
-      }
-
-      rho_id_factor <- inprod(Ustar_id_factor[1:2, 1],
-                              Ustar_id_factor[1:2, 2])
-      # --- end non-centered random effects ---
-
-      for (i in 1:N) {
-        mu_total[i] <- mu[i] +
-          beta_id_factor[id[i]] +
-          beta_t_id_factor[id[i]] * t[i]
-      }
-
-      y[1:N] ~ FORLOOP(dnorm(mu_total[1:N], sd = sigma_residual))
-      sigma_residual ~ T(dnorm(0, sd = 3), 0, )
+      y[1:N] ~ FORLOOP(dnorm(mu[1:N], sd = sigma_residual))
+      sigma_residual ~ dexp(rate = 1)
 
       .(create_imputation_model_linpred(imputation_model_covariates))
       .(create_imputation_model_distribution(imputation_model_distribution))
@@ -209,39 +175,36 @@ fit_model <- function(df,
     constants[[covariate]] <- G_df[[covariate]]
   }
 
+  priors <- setPriors(
+    intercept = quote(dnorm(0, sd = 10)),
+    coefficient = quote(dnorm(0, sd = 10)),
+    sd = quote(dunif(0, 10)),
+    lkjShape = 1
+  )
+
   code <- build_nimble_code(
     main_model_covariates       = main_model_covariates,
     imputation_model_covariates = imputation_model_covariates,
-    imputation_model_distribution = imputation_model_distribution
+    imputation_model_distribution = imputation_model_distribution,
+    priors = priors
   )
 
   mod <- nimbleModel(code = code,
-                     constants = constants)
+                     constants = constants,
+                     buildDerivs = FALSE)
+
+  model_code <- mod$getCode()
+  print(model_code)
 
   conf <- configureMCMC(mod,
-                        print = FALSE,
-                        enableWAIC = TRUE)
+                       print = FALSE,
+                       enableWAIC = TRUE)
 
   ##############################################################################
 
-  conf$removeSamplers(c("sd_id_factor", "sd_t_id_factor"))
-  conf$addSampler(
-    target  = c("sd_id_factor","sd_t_id_factor"),
-    type    = "RW_block",
-    control = list(adaptive = TRUE, adaptInterval = 50)
-  )
-
-  conf$resetMonitors()
-  all_nodes  <- mod$getNodeNames(stochOnly = FALSE, includeData = FALSE)
-  selected_nodes <- grep("\\[", all_nodes, value = TRUE, invert = TRUE)
-  ustar_nodes <- grep("Ustar|rho", all_nodes, value = TRUE)
-
-  keep <- union(selected_nodes, ustar_nodes)
-  conf$addMonitors(keep)
-
   ##############################################################################
 
-  conf$printSamplers()
+  # conf$printSamplers()
 
   mcmc  <- buildMCMC(conf)
 

@@ -16,7 +16,8 @@ Depends:
     R (>= 4.1.0),
     nimble,
     nimbleMacros,
-    nimbleEcology
+    nimbleEcology,
+    nimbleHMC
 Imports: 
     data.table,
     dplyr,
