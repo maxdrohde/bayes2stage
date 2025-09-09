@@ -14,7 +14,8 @@ create_main_model_linpred <- function(main_model_covariates){
     purrr::map_chr(main_model_covariates, \(x) glue::glue("{x}[id[1:N]]")) |>
     paste0(collapse = " + ")
 
-  line <- glue::glue("mu[1:N] <- LINPRED(~ (x[id[1:N]]) + {expanded_covariates} + (t[1:N]) + (t[1:N]:x[id[1:N]]) + (t[1:N]|id_factor[1:N]), coefPrefix=beta_, priors = priors)")
+  #line <- glue::glue("mu[1:N] <- LINPRED(~ (x[id[1:N]]) + {expanded_covariates} + (t[1:N]) + (t[1:N]:x[id[1:N]]) + (t[1:N]|id_factor[1:N]), coefPrefix=beta_, priors = priors)")
+  line <- glue::glue("mu[1:N] <- LINPRED(~ x[id[1:N]] + {expanded_covariates} + t[1:N] + t[1:N]:x[id[1:N]] + (t[1:N]|id_factor[1:N]), coefPrefix=beta_, noncentered=TRUE, priors = priors)")
 
   return(rlang::parse_expr(line))
 }
@@ -178,7 +179,7 @@ fit_model <- function(df,
   priors <- setPriors(
     intercept = quote(dnorm(0, sd = 10)),
     coefficient = quote(dnorm(0, sd = 10)),
-    sd = quote(dunif(0, 10)),
+    sd = quote(dexp(0.5)),
     lkjShape = 1
   )
 
@@ -191,7 +192,7 @@ fit_model <- function(df,
 
   mod <- nimbleModel(code = code,
                      constants = constants,
-                     buildDerivs = FALSE)
+                     buildDerivs = TRUE)
 
   model_code <- mod$getCode()
   print(model_code)
@@ -204,7 +205,7 @@ fit_model <- function(df,
 
   ##############################################################################
 
-  # conf$printSamplers()
+  conf$printSamplers()
 
   mcmc  <- buildMCMC(conf)
 
