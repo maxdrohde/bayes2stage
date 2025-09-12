@@ -200,9 +200,7 @@ fit_model <- function(df,
 
   priors <- setPriors(
     intercept = quote(dnorm(0, sd = 10)),
-    coefficient = quote(dnorm(0, sd = 10)),
-    sd = quote(dexp(0.5)),
-    lkjShape = 1
+    coefficient = quote(dnorm(0, sd = 10))
   )
 
   code <- build_nimble_code(

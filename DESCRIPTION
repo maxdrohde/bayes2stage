@@ -17,7 +17,9 @@ Depends:
     nimble,
     nimbleMacros,
     nimbleEcology,
-    nimbleHMC
+    mvtnorm,
+    numDeriv,
+    MASS
 Imports: 
     data.table,
     dplyr,
