@@ -91,7 +91,7 @@ create_imputation_model_distribution <- function(imputation_model_distribution =
                                       shape2 = s2[g])
             }
 
-              phi ~ dexp(rate = lambda)
+              phi ~ dexp(rate = 1)
 
            }
            "

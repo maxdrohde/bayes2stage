@@ -8,7 +8,9 @@ generate_data <-
   function(N = 2000,
            M = 5,
            alpha_main = 1, beta_x = 1, beta_z = 1,
-           beta_t = 2, beta_t_xe_interaction = 0.3,
+           beta_t = 2,
+           beta_t_x_interaction = 0.3,
+           beta_t_z_interaction = 0,
            error_sd = 4,
            x_dist = c("normal",
                       "poisson",
@@ -81,7 +83,8 @@ generate_data <-
         beta_x * x +
         beta_z * z +
         (beta_t + rand_effs[[2]]) * t +
-        (beta_t_xe_interaction * t * x) +
+        (beta_t_x_interaction * t * x) +
+        (beta_t_z_interaction * t * z) +
         rand_effs[[1]] +
         stats::rnorm(n = M, mean = 0, sd = error_sd)
 
