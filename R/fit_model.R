@@ -110,8 +110,8 @@ build_nimble_code <- function(main_model_covariates,
       .(create_main_model_linpred(main_model_covariates))
 
       # Random effects standard deviations
-      sigma_u0 ~ dexp(rate = 1)  # SD for random intercepts
-      sigma_u1 ~ dexp(rate = 1)  # SD for random slopes
+      sigma_u0 ~ dexp(rate = 0.1)  # SD for random intercepts
+      sigma_u1 ~ dexp(rate = 0.1)  # SD for random slopes
 
       # Correlation between random intercept and slope
       rho ~ dunif(-0.99, 0.99)
@@ -133,7 +133,7 @@ build_nimble_code <- function(main_model_covariates,
       }
 
       y[1:N] ~ FORLOOP(dnorm(mu_total[1:N], sd = sigma_residual))
-      sigma_residual ~ dexp(rate = 1)
+      sigma_residual ~ dexp(rate = 0.1)
 
       .(create_imputation_model_linpred(imputation_model_covariates))
       .(create_imputation_model_distribution(imputation_model_distribution))
@@ -198,8 +198,8 @@ fit_model <- function(df,
   }
 
   priors <- setPriors(
-    intercept = quote(dnorm(0, sd = 10)),
-    coefficient = quote(dnorm(0, sd = 10))
+    intercept = quote(dnorm(0, sd = 100)),
+    coefficient = quote(dnorm(0, sd = 100))
   )
 
   code <- build_nimble_code(

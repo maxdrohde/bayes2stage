@@ -7,23 +7,23 @@ to test two-stage design methods. In the form of Schildcrout (2019)
 supplement}
 \usage{
 generate_data_schild_2019_supp(
-  N = 2000,
-  Ms = c(4, 5, 6),
-  alpha_main = 75,
-  beta_x = -0.5,
-  beta_z = -2,
-  beta_t = -1,
-  beta_t_x_interaction = -0.5,
-  beta_t_z_interaction = 0,
-  error_sd = sqrt(12.25),
-  x_prevalence = 0.25,
-  rand_intercept_sd = sqrt(81),
-  rand_slope_sd = sqrt(1.56),
-  rand_eff_corr = 0,
-  gamma0 = 0.25,
-  gamma1 = 0.5,
-  gamma2 = 0,
-  gamma_sd = 1
+  N,
+  Ms,
+  alpha_main,
+  beta_x,
+  beta_z,
+  beta_t,
+  beta_t_x_interaction,
+  beta_t_z_interaction,
+  error_sd,
+  x_prevalence,
+  rand_intercept_sd,
+  rand_slope_sd,
+  rand_eff_corr,
+  gamma0,
+  gamma1,
+  gamma2,
+  gamma_sd
 )
 }
 \arguments{
