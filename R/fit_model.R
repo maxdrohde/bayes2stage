@@ -1,7 +1,6 @@
 #' @import nimble
 #' @import nimbleEcology
 #' @import nimbleMacros
-#' @import nimbleHMC
 
 nimbleOptions("enableWAIC" = TRUE)
 

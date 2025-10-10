@@ -26,7 +26,8 @@ plt_xy <-
   ggplot2::aes(x = x, y = y) +
   ggplot2::geom_point(size = 0.2) +
   ggplot2::theme_bw() +
-  ggplot2::labs(x = "X", y = "Y")
+  ggplot2::labs(x = "X", y = "Y") +
+  ggplot2::coord_equal()
 
 plt_zy <-
   dataset |>
@@ -34,7 +35,8 @@ plt_zy <-
   ggplot2::aes(x = z, y = y) +
   ggplot2::geom_point(size = 0.2) +
   ggplot2::theme_bw() +
-  ggplot2::labs(x = "Z", y = "Y")
+  ggplot2::labs(x = "Z", y = "Y") +
+  ggplot2::coord_equal()
 
 plt_zx <-
   dataset |>
@@ -43,7 +45,8 @@ plt_zx <-
   ggplot2::aes(x = z, y = x) +
   ggplot2::geom_point(size = 0.2) +
   ggplot2::theme_bw() +
-  ggplot2::labs(x = "Z", y = "X")
+  ggplot2::labs(x = "Z", y = "X") +
+  ggplot2::coord_equal()
 
 hist_x <-
   dataset |>
