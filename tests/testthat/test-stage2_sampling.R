@@ -1,7 +1,7 @@
 test_that("stage2 sampling", {
 
   # Data parameters
-  N_SUBJECTS <- 100L
+  N_SUBJECTS <- 200L
   M <- 5L
   sampling_N <- as.integer(0.2 * N_SUBJECTS)
 
@@ -14,7 +14,8 @@ test_that("stage2 sampling", {
   prop_low <- 0.40
 
 
-  df <- generate_data(x_dist = "normal", N = 500)
+  df <- generate_data(x_dist = "normal",
+                      N = N_SUBJECTS)
 
   srs_df <- bayes2stage::srs_design(df, sampling_N)
 

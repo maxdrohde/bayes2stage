@@ -1,4 +1,5 @@
-get_ods <- function(dataset, sampling_type){
+get_ods <- function(dataset,
+                    sampling_type){
 
   # Convert to data.table
   dataset <- data.table::as.data.table(dataset)
@@ -9,16 +10,16 @@ get_ods <- function(dataset, sampling_type){
             by = id]
 
   if (sampling_type == "intercept") {
-    # Create an intercept column for each subject
-    lms[, `:=`(intercept = lm_coef[[1]][["(Intercept)"]]), by = id]
-    out <- lms[, .(id, intercept)]
+    lms[, `:=`(target = lm_coef[[1]][["(Intercept)"]]), by = id]
+    out <- lms[, .(id, target)]
   } else if (sampling_type == "slope") {
-    # Create a slope column for each subject
-    lms[, `:=`(slope = lm_coef[[1]][["t"]]), by = id]
-    out <- lms[, .(id, slope)]
+    lms[, `:=`(target = lm_coef[[1]][["t"]]), by = id]
+    out <- lms[, .(id, target)]
   } else {
     stop("sampling_type must be 'intercept' or 'slope'")
   }
+
+  out$sampling_type <- sampling_type
 
   return(tibble::as_tibble(out))
 }
@@ -51,15 +52,12 @@ ods_design <- function(dataset,
 
   ods <- get_ods(dataset, sampling_type)
 
-  # Extract 2nd column (either intercept or slope)
-  sampling_feature <- ods[[2]]
-
   # Categorize  into high, middle, and low strata based on quantiles
   ods$category <-
-    cut(sampling_feature,
+    cut(ods$target,
         breaks = c(-Inf,
-                   stats::quantile(sampling_feature, cutoff_low),
-                   stats::quantile(sampling_feature, cutoff_high),
+                   stats::quantile(ods$target, cutoff_low),
+                   stats::quantile(ods$target, cutoff_high),
                    Inf),
         labels = c("Low", "Middle", "High"))
 

@@ -3,29 +3,25 @@
 #' @param ods_df ods_df
 #' @return params with conf ints
 #' @export
-fit_acml_ods <- function(ods_df){
-
-  # Use intercept or slope depending on the data
-  if ("slope" %in% names(ods_df)) {
-    ods_df <- rename(ods_df, target = slope)
-    type <- "slope"
-  } else if ("intercept" %in% names(ods_df)){
-    ods_df <- rename(ods_df, target = intercept)
-    type <- "intercept"
-  } else{
-    stop("Neither 'slope' nor 'intercept' column found in data")
-  }
+fit_acml_ods <- function(ods_df,
+                         cutoff_low,
+                         cutoff_high){
 
   # Create a data frame of ID and target
   # One row per ID
   subj <-
     ods_df |>
-    select(id, target) |>
-    distinct(id, .keep_all = TRUE)
+    dplyr::select(id, target) |>
+    dplyr::distinct(id, .keep_all = TRUE)
 
   # Compute the quantiles for the target intercept or slope
-  q_low  <- as.numeric(quantile(subj$target, probs = cutoff_low,  na.rm = TRUE))
-  q_high <- as.numeric(quantile(subj$target, probs = cutoff_high, na.rm = TRUE))
+  q_low  <- as.numeric(quantile(subj$target,
+                                probs = cutoff_low,
+                                na.rm = TRUE))
+
+  q_high <- as.numeric(quantile(subj$target,
+                                probs = cutoff_high,
+                                na.rm = TRUE))
 
   # Filter to selected subjects
   samp <- filter(ods_df, selected)
@@ -70,7 +66,7 @@ fit_acml_ods <- function(ods_df){
     formula.random  = ~ 1 + t,
     data      = samp,
     id        = id,
-    w.function = rep(type, nrow(samp)),
+    w.function = rep(sampling_type, nrow(samp)),
     InitVals   = InitVals,
     cutpoints  = cutM,
     SampProb   = probM,

@@ -18,7 +18,8 @@ get_blups <- function(dataset,
 
   # Fit the lme4 mixed-effect model to compute BLUPs
   mod <- lme4::lmer(formula = lmer_formula,
-                    data = dataset)
+                    data = dataset,
+                    REML = FALSE)
 
   # Extact the BLUPs
   if (sampling_type == "intercept") {
@@ -26,17 +27,20 @@ get_blups <- function(dataset,
       lme4::ranef(mod) |>
       as.data.frame() |>
       dplyr::filter(term == "(Intercept)") |>
-      dplyr::select(id = grp, intercept = condval)
+      dplyr::select(id = grp,
+                    target = condval)
   } else if (sampling_type == "slope") {
     out <-
       lme4::ranef(mod) |>
       as.data.frame() |>
       dplyr::filter(term == "t") |>
-      dplyr::select(id = grp, intercept = condval)
+      dplyr::select(id = grp,
+                    target = condval)
   } else {
     stop("sampling_type must be 'intercept' or 'slope'")
   }
 
+  out$sampling_type <- sampling_type
   out$id <- as.integer(as.character(out$id))
 
   return(out)
@@ -75,15 +79,12 @@ bds_design <- function(dataset,
               fixed_effects_formula,
               sampling_type)
 
-  # Get the Intercept or Slope estimates
-  sampling_feature <- as.numeric(blups[,2])
-
   # Categorize  into high, middle, and low strata based on quantiles
   blups$category <-
-    cut(sampling_feature,
+    cut(blups$target,
         breaks = c(-Inf,
-                   stats::quantile(sampling_feature, cutoff_low),
-                   stats::quantile(sampling_feature, cutoff_high),
+                   stats::quantile(blups$target, cutoff_low),
+                   stats::quantile(blups$target, cutoff_high),
                    Inf),
         labels = c("Low", "Middle", "High"))
 
@@ -119,7 +120,8 @@ bds_design <- function(dataset,
                     low_ids)
 
   # If not chosen for stage 2, set x to missing
-  stage2_df <- set_missing(dataset, selected_ids)
+  stage2_df <- set_missing(dataset,
+                           selected_ids)
 
   # Merge in the information on the estimated BLUPs
   stage2_df <- dplyr::left_join(stage2_df,

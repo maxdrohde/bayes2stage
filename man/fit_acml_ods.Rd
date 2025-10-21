@@ -4,7 +4,7 @@
 \alias{fit_acml_ods}
 \title{fit_acml_ods}
 \usage{
-fit_acml_ods(ods_df)
+fit_acml_ods(ods_df, cutoff_low, cutoff_high)
 }
 \arguments{
 \item{ods_df}{ods_df}
