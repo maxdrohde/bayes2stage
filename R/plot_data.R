@@ -4,7 +4,7 @@
 #' @param subset_size How many subjects to use?
 #' @return A ggplot2 object
 #' @export
-data_plot <- function(dataset,
+plot_data <- function(dataset,
                       subset_size = 200){
 
   dataset <-

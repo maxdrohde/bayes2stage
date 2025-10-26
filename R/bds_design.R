@@ -107,9 +107,11 @@ bds_design <- function(dataset,
   high_ids <- sample(dplyr::filter(blups, category == "High")$id,
                      size = size_high,
                      replace = FALSE)
+
   middle_ids <- sample(dplyr::filter(blups, category == "Middle")$id,
                        size = size_middle,
                        replace = FALSE)
+
   low_ids <- sample(dplyr::filter(blups, category == "Low")$id,
                     size = size_low,
                     replace = FALSE)

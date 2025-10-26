@@ -13,7 +13,12 @@ create_main_model_linpred <- function(main_model_covariates){
     purrr::map_chr(main_model_covariates, \(x) glue::glue("{x}[id[1:N]]")) |>
     paste0(collapse = " + ")
 
-  line <- glue::glue("mu[1:N] <- LINPRED(~ (x[id[1:N]]) + {expanded_covariates} + (t[1:N]) + (t[1:N]:x[id[1:N]]), coefPrefix=beta_, priors = priors)")
+  line <- glue::glue("mu[1:N] <- LINPRED(~ (x[id[1:N]]) +
+                     {expanded_covariates} +
+                     (t[1:N]) +
+                     (t[1:N]:x[id[1:N]]),
+                     coefPrefix=beta_,
+                     priors = priors)")
 
   return(rlang::parse_expr(line))
 }

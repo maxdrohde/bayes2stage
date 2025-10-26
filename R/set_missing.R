@@ -1,6 +1,6 @@
 #' Given selected subjects, set X to missing for those not selected
 #'
-#' @param dataset Input dataframe
+#' @param dataset Input data frame
 #' @param selected_ids IDs for the selected subjects
 #' @return data.frame
 #' @export
@@ -14,7 +14,7 @@ set_missing <- function(dataset, selected_ids){
   dataset$selected <- dataset$id %in% selected_ids
 
   # Set X values where not selected to NA
-  dataset[!(dataset$selected),]$x <- NA
+  dataset$x[!dataset$selected] <- NA
 
   return(dataset)
 }

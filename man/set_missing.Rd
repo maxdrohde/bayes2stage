@@ -7,7 +7,7 @@
 set_missing(dataset, selected_ids)
 }
 \arguments{
-\item{dataset}{Input dataframe}
+\item{dataset}{Input data frame}
 
 \item{selected_ids}{IDs for the selected subjects}
 }

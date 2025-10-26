@@ -19,7 +19,8 @@ srs_design <- function(dataset, N){
                          replace = FALSE)
 
   # If not chosen for stage 2, set x to missing
-  stage2_df <- set_missing(dataset, selected_ids)
+  stage2_df <- set_missing(dataset,
+                           selected_ids)
 
   return(stage2_df)
 }
