@@ -44,7 +44,7 @@ create_imputation_model_distribution <- function(imputation_model_distribution =
   switch(imputation_model_distribution,
          normal = {
            line =
-             "
+           "
            {
              x[1:G] ~ FORLOOP(dnorm(eta[1:G], sd = sigma_imputation))
              sigma_imputation ~ dexp(rate = 0.1)
@@ -80,7 +80,7 @@ create_imputation_model_distribution <- function(imputation_model_distribution =
            "
          },
          beta_binomial = {
-           # https://cran.r-project.org/web/packages/brms/vignettes/brms_customfamilies.html#the-beta-binomial-distribution
+        # https://cran.r-project.org/web/packages/brms/vignettes/brms_customfamilies.html#the-beta-binomial-distribution
            line =
              "
            {
@@ -105,10 +105,15 @@ create_imputation_model_distribution <- function(imputation_model_distribution =
   return(rlang::parse_expr(line))
 }
 
-create_random_effects_code <- function(correlated_random_effects = TRUE) {
-  if (correlated_random_effects) {
-    line <- "
-    {
+build_nimble_code <- function(main_model_covariates,
+                              imputation_model_covariates,
+                              imputation_model_distribution,
+                              priors = priors) {
+
+  modelCode <- eval(bquote(
+    nimbleCode({
+      .(create_main_model_linpred(main_model_covariates))
+
       # Random effects standard deviations
       sigma_u0 ~ dexp(rate = 0.1)  # SD for random intercepts
       sigma_u1 ~ dexp(rate = 0.1)  # SD for random slopes
@@ -122,49 +127,11 @@ create_random_effects_code <- function(correlated_random_effects = TRUE) {
         u1_raw[j] ~ dnorm(0, sd = 1)  # Raw random slope
       }
 
-      # Transform to centered parameterization with correlation
+      # Transform to centered parameterization
       for (j in 1:G) {
         u0[j] <- sigma_u0 * u0_raw[j]
         u1[j] <- sigma_u1 * (rho * u0_raw[j] + sqrt(1 - rho^2) * u1_raw[j])
       }
-    }
-    "
-  } else {
-    line <- "
-    {
-      # Random effects standard deviations
-      sigma_u0 ~ dexp(rate = 0.1)  # SD for random intercepts
-      sigma_u1 ~ dexp(rate = 0.1)  # SD for random slopes
-
-      # Non-centered random effects (raw parameters)
-      for (j in 1:G) {
-        u0_raw[j] ~ dnorm(0, sd = 1)  # Raw random intercept
-        u1_raw[j] ~ dnorm(0, sd = 1)  # Raw random slope
-      }
-
-      # Transform to centered parameterization without correlation
-      for (j in 1:G) {
-        u0[j] <- sigma_u0 * u0_raw[j]
-        u1[j] <- sigma_u1 * u1_raw[j]
-      }
-    }
-    "
-  }
-
-  return(rlang::parse_expr(line))
-}
-
-build_nimble_code <- function(main_model_covariates,
-                              imputation_model_covariates,
-                              imputation_model_distribution,
-                              correlated_random_effects = TRUE,
-                              priors = priors) {
-
-  modelCode <- eval(bquote(
-    nimbleCode({
-      .(create_main_model_linpred(main_model_covariates))
-
-      .(create_random_effects_code(correlated_random_effects))
 
       for (i in 1:N) {
         mu_total[i] <- mu[i] + u0[id[i]] + u1[id[i]] * t[i]
@@ -178,8 +145,7 @@ build_nimble_code <- function(main_model_covariates,
     })
   ), list(main_model_covariates = main_model_covariates,
           imputation_model_covariates = imputation_model_covariates,
-          imputation_model_distribution = imputation_model_distribution,
-          correlated_random_effects = correlated_random_effects))
+          imputation_model_distribution = imputation_model_distribution))
 
   return(modelCode)
 }
@@ -189,14 +155,13 @@ fit_model <- function(df,
                       main_model_covariates,
                       imputation_model_covariates,
                       imputation_model_distribution,
-                      correlated_random_effects = TRUE,
                       nchains = 4,
                       niter = 10000,
                       nburnin = 2000,
                       x_size = NULL,
                       print_summary = FALSE,
                       print_code = FALSE
-){
+                      ){
 
   if (imputation_model_distribution %in% c("binomial", "beta_binomial")) {
     stopifnot("Must specify x_size for binomial or beta binomial distributions" = !is.null(x_size))
@@ -246,7 +211,6 @@ fit_model <- function(df,
     main_model_covariates       = main_model_covariates,
     imputation_model_covariates = imputation_model_covariates,
     imputation_model_distribution = imputation_model_distribution,
-    correlated_random_effects = correlated_random_effects,
     priors = priors
   )
 
@@ -258,13 +222,7 @@ fit_model <- function(df,
   # print(model_code)
 
   vars <- mod$getVarNames()
-
-  # Conditionally include rho in monitoring based on correlation toggle
-  if (correlated_random_effects) {
-    mon  <- vars[ grepl("^(beta_|gamma_|sigma_)", vars) | vars == "rho" ]
-  } else {
-    mon  <- vars[ grepl("^(beta_|gamma_|sigma_)", vars) ]
-  }
+  mon  <- vars[ grepl("^(beta_|gamma_|sigma_)", vars) | vars == "rho" ]
 
   conf <- configureMCMC(mod,
                         monitors = mon,
