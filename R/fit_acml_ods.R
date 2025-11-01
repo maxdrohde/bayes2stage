@@ -46,12 +46,12 @@ fit_acml_ods <- function(ods_df,
   probM <- matrix(SampProb_vec, nrow(samp), length(lv), byrow = TRUE)
 
   # Get sensible starting values from a naive lmer model
-  m0 <- lmer(y ~ t + z + x + x:t + (t | id),
+  m0 <- lme4::lmer(y ~ t + z + x + x:t + (t | id),
              data = samp,
              REML = FALSE)
 
-  beta0 <- fixef(m0)
-  vc    <- VarCorr(m0)$id
+  beta0 <- lme4::fixef(m0)
+  vc    <- lme4::VarCorr(m0)$id
   sd_b0 <- attr(vc, "stddev")[1]
   sd_b1 <- attr(vc, "stddev")[2]
   rho01 <- attr(vc, "correlation")[1, 2]
@@ -81,11 +81,17 @@ fit_acml_ods <- function(ods_df,
 
   ci_est <- data.frame(
     parameter = c(
-      "(Intercept)", "t", "z", "x", "x:t",
-      "log(sd_(Intercept))", "log(sd_t)",
+      "(Intercept)",
+      "t",
+      "z",
+      "x",
+      "x:t",
+      "log(sd_(Intercept))",
+      "log(sd_t)",
       "z_rho((Intercept),t)",
       "log(sd_eps)"),
     estimate = est,
+    se = se,
     lower = est - z*se,
     upper = est + z*se
   )

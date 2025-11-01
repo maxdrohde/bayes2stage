@@ -2,59 +2,75 @@
 #' @import nimbleEcology
 #' @import nimbleMacros
 
-nimbleOptions("enableWAIC" = TRUE)
+use_waic <- TRUE
 
+nimbleOptions("enableWAIC" = use_waic)
+
+###############################################################################
 # Create the NIMBLE model line for the main model
 # Allows the user to input any number of covariates
-
-create_main_model_linpred <- function(main_model_covariates){
+create_main_model_linpred <- function(main_model_covariates,
+                                      main_model_priors){
 
   expanded_covariates <-
     purrr::map_chr(main_model_covariates, \(x) glue::glue("{x}[id[1:N]]")) |>
     paste0(collapse = " + ")
 
-  line <- glue::glue("mu[1:N] <- LINPRED(~ (x[id[1:N]]) +
+  line <- glue::glue("mu[1:N] <-
+                    LINPRED(~
+                     (x[id[1:N]]) +
                      {expanded_covariates} +
                      (t[1:N]) +
                      (t[1:N]:x[id[1:N]]),
                      coefPrefix=beta_,
-                     priors = priors)")
+                     priors = main_model_priors)")
 
   return(rlang::parse_expr(line))
 }
 
-create_imputation_model_linpred <- function(imputation_model_covariates){
+###############################################################################
+create_imputation_model_linpred <- function(imputation_model_covariates,
+                                            imputation_model_priors){
 
   expanded_covariates <-
-    purrr::map_chr(imputation_model_covariates, \(x) glue::glue("{x}[1:G]")) |>
+    purrr::map_chr(imputation_model_covariates,
+                   \(x) glue::glue("{x}[1:G]")) |>
     paste0(collapse = " + ")
 
-  line <- glue::glue("eta[1:G] <- LINPRED(~ {expanded_covariates}, coefPrefix=gamma_)")
+  line <- glue::glue("eta[1:G] <-
+                     LINPRED(~ {expanded_covariates},
+                     coefPrefix=gamma_,
+                     priors = imputation_model_priors)")
   return(rlang::parse_expr(line))
 }
 
-create_imputation_model_distribution <- function(imputation_model_distribution =
-                                                   c("normal",
-                                                     "binomial",
-                                                     "beta_binomial",
-                                                     "negative_binomial",
-                                                     "poisson")) {
-  imputation_model_distribution <- match.arg(imputation_model_distribution)
+###############################################################################
+create_imputation_model_distribution <-
+  function(imputation_model_distribution =
+             c(
+               "normal",
+               "binomial",
+               "beta_binomial",
+               "negative_binomial",
+               "poisson",
+               "probit_bernoulli"
+             )) {
+    imputation_model_distribution <- match.arg(imputation_model_distribution)
 
-  switch(imputation_model_distribution,
-         normal = {
-           line =
-             "
+    switch(imputation_model_distribution,
+      normal = {
+        line <-
+          "
            {
              x[1:G] ~ FORLOOP(dnorm(eta[1:G], sd = sigma_imputation))
              sigma_imputation ~ dexp(rate = 0.1)
            }
            "
-         },
-         negative_binomial = {
-           # https://georgederpa.github.io/teaching/countModels.html
-           line =
-             "
+      },
+      negative_binomial = {
+        # https://georgederpa.github.io/teaching/countModels.html
+        line <-
+          "
            {
              mu_2[1:G] <- FORLOOP(exp(eta[1:G]))
              p[1:G] <- FORLOOP(r / (r + mu_2[1:G]))
@@ -62,27 +78,27 @@ create_imputation_model_distribution <- function(imputation_model_distribution =
              r ~ dexp(rate = 0.1)
            }
            "
-         },
-         poisson = {
-           line =
-             "
+      },
+      poisson = {
+        line <-
+          "
            {
              x[1:G] ~ FORLOOP(dpois(lambda = exp(eta[1:G])))
            }
            "
-         },
-         binomial = {
-           line =
-             "
+      },
+      binomial = {
+        line <-
+          "
            {
              x[1:G] ~ FORLOOP(dbinom(prob = expit(eta[1:G]), size = x_size))
            }
            "
-         },
-         beta_binomial = {
-           # https://cran.r-project.org/web/packages/brms/vignettes/brms_customfamilies.html#the-beta-binomial-distribution
-           line =
-             "
+      },
+      beta_binomial = {
+        # https://cran.r-project.org/web/packages/brms/vignettes/brms_customfamilies.html#the-beta-binomial-distribution
+        line <-
+          "
            {
 
            for(g in 1:G) {
@@ -99,13 +115,14 @@ create_imputation_model_distribution <- function(imputation_model_distribution =
 
            }
            "
-         }
-  )
+      }
+    )
 
-  return(rlang::parse_expr(line))
-}
+    return(rlang::parse_expr(line))
+  }
 
-create_random_effects_code <- function(correlated_random_effects = TRUE) {
+create_random_effects_code <-
+  function(correlated_random_effects = TRUE) {
   if (correlated_random_effects) {
     line <- "
     {
@@ -158,11 +175,13 @@ build_nimble_code <- function(main_model_covariates,
                               imputation_model_covariates,
                               imputation_model_distribution,
                               correlated_random_effects = TRUE,
-                              priors = priors) {
+                              main_model_priors,
+                              imputation_model_priors) {
 
   modelCode <- eval(bquote(
     nimbleCode({
-      .(create_main_model_linpred(main_model_covariates))
+      .(create_main_model_linpred(main_model_covariates,
+                                  main_model_priors))
 
       .(create_random_effects_code(correlated_random_effects))
 
@@ -173,13 +192,16 @@ build_nimble_code <- function(main_model_covariates,
       y[1:N] ~ FORLOOP(dnorm(mu_total[1:N], sd = sigma_residual))
       sigma_residual ~ dexp(rate = 0.1)
 
-      .(create_imputation_model_linpred(imputation_model_covariates))
+      .(create_imputation_model_linpred(imputation_model_covariates,
+                                        imputation_model_priors))
       .(create_imputation_model_distribution(imputation_model_distribution))
     })
   ), list(main_model_covariates = main_model_covariates,
           imputation_model_covariates = imputation_model_covariates,
           imputation_model_distribution = imputation_model_distribution,
-          correlated_random_effects = correlated_random_effects))
+          correlated_random_effects = correlated_random_effects,
+          main_model_priors = main_model_priors,
+          imputation_model_priors = imputation_model_priors))
 
   return(modelCode)
 }
@@ -237,17 +259,41 @@ fit_model <- function(df,
     constants[[covariate]] <- G_df[[covariate]]
   }
 
-  priors <- setPriors(
+  main_model_priors <- setPriors(
     intercept = quote(dnorm(0, sd = 100)),
     coefficient = quote(dnorm(0, sd = 100))
   )
 
+  if (imputation_model_distribution == "normal") {
+    imputation_model_priors <- setPriors(
+      intercept = quote(dnorm(0, sd = 100)),
+      coefficient = quote(dnorm(0, sd = 100))
+    )
+  } else if (imputation_model_distribution %in% c("binomial", "beta_binomial")) {
+    imputation_model_priors <- setPriors(
+      intercept = quote(dnorm(0, sd = 2.5)),
+      coefficient = quote(dnorm(0, sd = 2.5))
+    )
+  } else if (imputation_model_distribution %in% c("poisson", "negative_binomial")) {
+    imputation_model_priors <- setPriors(
+      intercept = quote(dnorm(0, sd = 2.5)),
+      coefficient = quote(dnorm(0, sd = 2.5))
+    )
+  } else {
+    # Default for any other distributions
+    imputation_model_priors <- setPriors(
+      intercept = quote(dnorm(0, sd = 100)),
+      coefficient = quote(dnorm(0, sd = 100))
+    )
+  }
+
   code <- build_nimble_code(
-    main_model_covariates       = main_model_covariates,
+    main_model_covariates = main_model_covariates,
     imputation_model_covariates = imputation_model_covariates,
     imputation_model_distribution = imputation_model_distribution,
     correlated_random_effects = correlated_random_effects,
-    priors = priors
+    main_model_priors = main_model_priors,
+    imputation_model_priors = imputation_model_priors
   )
 
   mod <- nimbleModel(code = code,
@@ -269,7 +315,7 @@ fit_model <- function(df,
   conf <- configureMCMC(mod,
                         monitors = mon,
                         print = FALSE,
-                        enableWAIC = TRUE)
+                        enableWAIC = use_waic)
 
   ##############################################################################
 
@@ -288,22 +334,28 @@ fit_model <- function(df,
                      nchains = nchains,
                      niter = niter,
                      nburnin = nburnin,
-                     WAIC = TRUE,
+                     WAIC = use_waic,
                      samplesAsCodaMCMC = TRUE)
 
   if (print_code) {
     cat("CODE:----------------------------------------------------------------")
     print(mod$getCode())
     cat("---------------------------------------------------------------------")
+    conf$printSamplers()
+    cat("---------------------------------------------------------------------")
   }
 
   if (print_summary) {
     print(mcmc_summary(samples$samples, dataset_id = "print"))
-    print(samples$WAIC)
+
+    if (use_waic) print(samples$WAIC)
   }
 
   out <- samples$samples
-  attr(out, "WAIC") <- samples$WAIC$WAIC
+
+  if (use_waic) {
+    attr(out, "WAIC") <- samples$WAIC$WAIC
+  }
 
   return(out)
 }
