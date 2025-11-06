@@ -260,14 +260,14 @@ fit_model <- function(df,
   }
 
   main_model_priors <- setPriors(
-    intercept = quote(dnorm(0, sd = 100)),
-    coefficient = quote(dnorm(0, sd = 100))
+    intercept = quote(dnorm(0, sd = 2)),
+    coefficient = quote(dnorm(0, sd = 2))
   )
 
   if (imputation_model_distribution == "normal") {
     imputation_model_priors <- setPriors(
-      intercept = quote(dnorm(0, sd = 100)),
-      coefficient = quote(dnorm(0, sd = 100))
+      intercept = quote(dnorm(0, sd = 2)),
+      coefficient = quote(dnorm(0, sd = 2))
     )
   } else if (imputation_model_distribution %in% c("binomial", "beta_binomial")) {
     imputation_model_priors <- setPriors(
