@@ -45,7 +45,6 @@ parameters {
 }
 
 model {
-  // Fix 3: Vectorized prior (no to_vector)
   z_re ~ std_normal();
   sigma_re ~ exponential(1);
   L_re ~ lkj_corr_cholesky(2);
@@ -63,12 +62,10 @@ model {
   alpha_imputation ~ normal(0, 5);
   gamma ~ normal(0, 5);
 
-  // Fix 2: Defined locally in model block (Scope Management)
   vector[G] x;
   x[index_obs] = x_obs;
   x[index_mis] = x_mis;
 
-  // Fix 3: No transpose (Memory Optimization)
   matrix[2, G] re;
   re = diag_pre_multiply(sigma_re, L_re) * z_re;
 
@@ -76,7 +73,6 @@ model {
   {
     vector[N] x_subj   = x[id];        // x per observation
     
-    // Fix 3: Indexing adjusted for non-transposed matrix
     vector[N] re_int   = re[1, id]';   // random intercept per obs
     vector[N] re_slope = re[2, id]';   // random slope per obs
 
