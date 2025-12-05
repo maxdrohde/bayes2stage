@@ -45,7 +45,7 @@ parameters {
 }
 
 model {
-  z_re ~ std_normal();
+  to_vector(z_re) ~ std_normal();
   sigma_re ~ exponential(1);
   L_re ~ lkj_corr_cholesky(2);
 

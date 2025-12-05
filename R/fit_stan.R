@@ -1,9 +1,9 @@
 mod1 <- cmdstanr::cmdstan_model("~/r_package_development/bayes2stage/inst/stan_models/mixed_effects_imputation.stan")
 mod2 <- cmdstanr::cmdstan_model("~/r_package_development/bayes2stage/inst/stan_models/mixed_effects_imputation_centered.stan")
 
-df <- bayes2stage::generate_data(N = 2000,
+df <- bayes2stage::generate_data(N = 500,
                                  x_dist = "normal") |>
-  bayes2stage::srs_design(N = 500)
+  bayes2stage::srs_design(N = 100)
 
 data_list <- format_data_mcmc(df,
                               main_vars = c("z"),
@@ -14,8 +14,8 @@ fit1 <- mod1$sample(
   seed = 1234,
   chains = 10,
   parallel_chains = 10,
-  iter_warmup = 2000,
-  iter_sampling = 2000,
+  iter_warmup = 500,
+  iter_sampling = 500,
   adapt_delta = 0.99
 )
 
