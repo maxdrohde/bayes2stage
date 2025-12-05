@@ -2,3 +2,12 @@
 ^\.Rproj\.user$
 ^LICENSE\.md$
 ^README\.Rmd$
+^\.DS_Store$
+^\.Rhistory$
+^\.\.Rcheck$
+^\.git$
+^\.gitignore$
+^\.quarto$
+^MCMCtrace\.pdf$
+^cleanup$
+^cleanup\.win$

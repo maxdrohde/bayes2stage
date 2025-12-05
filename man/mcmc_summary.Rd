@@ -2,10 +2,19 @@
 % Please edit documentation in R/misc.R
 \name{mcmc_summary}
 \alias{mcmc_summary}
-\title{Extract MCMC summary}
+\title{Extract MCMC summary statistics}
 \usage{
 mcmc_summary(mcmc_output, dataset_id)
 }
+\arguments{
+\item{mcmc_output}{MCMC output object (e.g., from fit_model)}
+
+\item{dataset_id}{A character string identifying the dataset (added as a column)}
+}
+\value{
+A data frame with summary statistics for each parameter
+}
 \description{
-Extract MCMC summary
+A wrapper around MCMCvis::MCMCsummary to extract summary statistics from
+MCMC samples.
 }

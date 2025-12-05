@@ -1,8 +1,29 @@
 #' Generate correlated random intercept / slope longitudinal data
-#' to test two-stage design methods.
 #'
-#' @param N TO DO
-#' @return TO DO
+#' Generates simulated longitudinal data with correlated random intercepts
+#' and slopes for testing two-stage design methods.
+#'
+#' @param N Number of subjects (default: 2000)
+#' @param M Number of time points per subject (default: 5)
+#' @param alpha_main Intercept for the main model (default: 1)
+#' @param beta_x Coefficient for x in the main model (default: 1)
+#' @param beta_z Coefficient for z in the main model (default: 1)
+#' @param beta_t Coefficient for time in the main model (default: 2)
+#' @param beta_t_x_interaction Coefficient for time-x interaction (default: 0.3)
+#' @param beta_t_z_interaction Coefficient for time-z interaction (default: 0)
+#' @param error_sd Standard deviation of residual error (default: 4)
+#' @param x_dist Distribution for x: "normal", "poisson", "binomial",
+#'   "negative_binomial", or "beta_binomial" (default: "normal")
+#' @param x_size Size parameter for binomial/beta_binomial distributions
+#' @param x_disp_param Dispersion parameter for negative_binomial/beta_binomial
+#' @param rand_intercept_sd Standard deviation of random intercepts (default: 3)
+#' @param rand_slope_sd Standard deviation of random slopes (default: 1)
+#' @param rand_eff_corr Correlation between random intercepts and slopes (default: 0)
+#' @param gamma0 Intercept for the imputation model (default: 1)
+#' @param gamma1 Linear coefficient for z in the imputation model (default: 1)
+#' @param gamma2 Quadratic coefficient for z in the imputation model (default: 0)
+#' @param gamma_sd Standard deviation for the imputation model (normal distribution only) (default: 2)
+#' @return A data frame with simulated longitudinal data
 #' @export
 generate_data <-
   function(N = 2000,

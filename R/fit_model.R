@@ -206,6 +206,26 @@ build_nimble_code <- function(main_model_covariates,
   return(modelCode)
 }
 
+#' Fit a Bayesian two-stage model using NIMBLE
+#'
+#' Fits a mixed effects model with imputation using NIMBLE for MCMC sampling.
+#'
+#' @param df A data frame containing the outcome and covariates. Must include
+#'   columns: y (outcome), t (time), x (exposure), and id (subject identifier).
+#' @param main_model_covariates Character vector of covariate names for the main model
+#' @param imputation_model_covariates Character vector of covariate names for the imputation model
+#' @param imputation_model_distribution Distribution for the imputation model.
+#'   One of: "normal", "binomial", "beta_binomial", "poisson", "negative_binomial"
+#' @param correlated_random_effects Logical; if TRUE, random intercepts and slopes
+#'   are correlated (default: TRUE)
+#' @param nchains Number of MCMC chains (default: 4)
+#' @param niter Number of MCMC iterations per chain (default: 10000)
+#' @param nburnin Number of burn-in iterations to discard (default: 2000)
+#' @param x_size Integer vector of trial sizes; required for binomial or beta_binomial
+#'   distributions (default: NULL)
+#' @param print_summary Logical; if TRUE, prints MCMC summary (default: FALSE)
+#' @param print_code Logical; if TRUE, prints the NIMBLE model code (default: FALSE)
+#' @return A list containing MCMC samples and optionally WAIC
 #' @export
 fit_model <- function(df,
                       main_model_covariates,

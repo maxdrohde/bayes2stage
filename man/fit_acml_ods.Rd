@@ -2,16 +2,20 @@
 % Please edit documentation in R/fit_acml_ods.R
 \name{fit_acml_ods}
 \alias{fit_acml_ods}
-\title{fit_acml_ods}
+\title{Fit ACML model for outcome-dependent sampling}
 \usage{
 fit_acml_ods(ods_df, cutoff_low, cutoff_high)
 }
 \arguments{
-\item{ods_df}{ods_df}
+\item{ods_df}{Data frame from ODS sampling}
+
+\item{cutoff_low}{Lower cutoff value for sampling regions}
+
+\item{cutoff_high}{Upper cutoff value for sampling regions}
 }
 \value{
-params with conf ints
+A data frame with parameter estimates and confidence intervals
 }
 \description{
-fit_acml_ods
+Fits an ascertainment-corrected maximum likelihood model for ODS designs.
 }

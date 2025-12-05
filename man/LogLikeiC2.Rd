@@ -7,7 +7,7 @@
 LogLikeiC2(subjectData, beta, sigma.vc, rho.vc, sigma.e)
 }
 \arguments{
-\item{subjectData}{a list containing: yi, xi, zi, Weights.i}
+\item{subjectData}{a list containing: yi, xi, zi, Weights.i, w.function.i, SampProb.i, cutpoints.i}
 
 \item{beta}{mean model parameter p-vector}
 
@@ -16,12 +16,6 @@ LogLikeiC2(subjectData, beta, sigma.vc, rho.vc, sigma.e)
 \item{rho.vc}{vector of correlations among the random effects.  The length should be q choose 2}
 
 \item{sigma.e}{std dev of the measurement error distribution}
-
-\item{w.function}{options include "mean" "intercept" "slope" and "bivar"}
-
-\item{cutpoints}{cutpoints defining the sampling regions. (a vector of length 4 c(xlow, xhigh, ylow, yhigh))}
-
-\item{SampProb}{Sampling probabilities from within each region (vector of length 2 c(central region, outlying region)).}
 }
 \value{
 ss contributions to the conditional log likelihood.  This is an internal function used by LogLikeC2

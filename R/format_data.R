@@ -1,11 +1,13 @@
 #' Format the simulated data for Stan / NIMBLE
 #'
 #' @param dataset Dataset to use
+#' @param main_vars Character vector of column names for covariates in the main model
+#' @param imputation_vars Character vector of column names for covariates in the imputation model
 #' @return A list suitable for input to MCMC software
 #' @export
 format_data_mcmc <- function(dataset,
-                             main_vars = NULL,   # columns in the main model
-                             imputation_vars = NULL)   # columns in the imputation model
+                             main_vars = NULL,
+                             imputation_vars = NULL)
   {
 
   dataset <-

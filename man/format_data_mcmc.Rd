@@ -4,10 +4,14 @@
 \alias{format_data_mcmc}
 \title{Format the simulated data for Stan / NIMBLE}
 \usage{
-format_data_mcmc(dataset, spline = FALSE)
+format_data_mcmc(dataset, main_vars = NULL, imputation_vars = NULL)
 }
 \arguments{
 \item{dataset}{Dataset to use}
+
+\item{main_vars}{Character vector of column names for covariates in the main model}
+
+\item{imputation_vars}{Character vector of column names for covariates in the imputation model}
 }
 \value{
 A list suitable for input to MCMC software

@@ -26,7 +26,7 @@ acml.lmem2(
 
 \item{id}{sum(n_i) vector of subject ids (a variable contained in data)}
 
-\item{w.function}{sum(n_i) vector with possible values that include "mean" (mean of response series), "intercept" (intercept of the regression of Yi ~ zi where zi is the design matrix for the random effects (solve(t.zi* zi) * t.zi)\link{1,}), "intercept1"  (intercept of the regression of Yi ~ zi where zi is the design matrix for the random effects (solve(t.zi * zi) * t.zi)\link{1,}). "intercept2" (second intercept of the regression of the Yi ~}
+\item{w.function}{sum(n_i) vector with possible values that include "mean" (mean of response series), "intercept" (intercept of the regression of Yi ~ zi where zi is the design matrix for the random effects (solve(t.zi* zi) * t.zi)\verb{[1,]}), "intercept1"  (intercept of the regression of Yi ~ zi where zi is the design matrix for the random effects (solve(t.zi * zi) * t.zi)\verb{[1,]}). "intercept2" (second intercept of the regression of the Yi ~}
 
 \item{InitVals}{starting values for c(beta, log(sigma0), log(sigma1), log((1+rho)/(1-rho)), log(sigmae))}
 
@@ -37,7 +37,7 @@ acml.lmem2(
 \item{Weights}{Subject specific sampling weights.  A vector of length sum(n_i).  This should be a variable in the data dataframe. It should only be used if doing IPWL.  Note if doing IPWL, only use robcov (robust variances) and not covar.  If not doing IPWL, this must be a vectors of 1s.}
 
 \item{ProfileCol}{the column number(s) for which we want fixed at the value of param.  Maximizing the log likelihood for all other parameters
-while fixing these columns at the values of InitVals\link{ProfileCol}}
+while fixing these columns at the values of \code{InitVals[ProfileCol]}}
 }
 \value{
 Ascertainment corrected Maximum likelihood: Ests, covar, LogL, code, robcov

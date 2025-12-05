@@ -16,8 +16,6 @@ logACi2q.score2(subjectData, beta, sigma.vc, rho.vc, sigma.e)
 \item{rho.vc}{vector of correlations among the random effects.  The length should be q choose 2}
 
 \item{sigma.e}{std dev of the measurement error distribution}
-
-\item{sigmae}{std dev of the measurement error distribution}
 }
 \value{
 gradient of the log transformed ascertainment correction under the bivariate sampling design

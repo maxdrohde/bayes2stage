@@ -1,56 +1,46 @@
-mod1 <- cmdstanr::cmdstan_model("~/r_package_development/bayes2stage/inst/stan_models/mixed_effects_imputation.stan")
-mod2 <- cmdstanr::cmdstan_model("~/r_package_development/bayes2stage/inst/stan_models/mixed_effects_imputation_centered.stan")
+#' Fit a Bayesian two-stage model using Stan
+#'
+#' Fits a mixed effects model with imputation using Stan via the instantiate package.
+#'
+#' @param data A data frame containing the outcome and covariates
+#' @param main_model_covariates Character vector of covariate names for the main model
+#' @param imputation_model_covariates Character vector of covariate names for the imputation model
+#' @param nchains Number of MCMC chains (default: 4)
+#' @param iter_warmup Number of warmup iterations per chain (default: 1000)
+#' @param iter_sampling Number of sampling iterations per chain (default: 1000)
+#' @param adapt_delta Target acceptance rate for HMC (default: 0.8)
+#' @param seed Random seed for reproducibility (default: 777L)
+#' @param parallel_chains Number of chains to run in parallel (default: 1L)
+#' @return A CmdStanMCMC fit object
+#' @export
+fit_stan_model <- function(data,
+                           main_model_covariates,
+                           imputation_model_covariates,
+                           nchains = 4,
+                           iter_warmup = 1000,
+                           iter_sampling = 1000,
+                           adapt_delta = 0.8,
+                           seed = 777L,
+                           parallel_chains = 1L) {
 
-df <- bayes2stage::generate_data(N = 300,
-                                 x_dist = "normal") |>
-  bayes2stage::srs_design(N = 100)
+  data_list <- format_data_mcmc(data,
+                                main_vars = main_model_covariates,
+                                imputation_vars = imputation_model_covariates)
 
-data_list <- format_data_mcmc(df,
-                              main_vars = c("z"),
-                              imputation_vars = c("z"))
+  mod <- instantiate::stan_package_model(
+    name = "mixed_effects_imputation",
+    package = "bayes2stage"
+  )
 
-fit1 <- mod1$sample(
-  data = data_list,
-  seed = 1234,
-  chains = 10,
-  parallel_chains = 10,
-  iter_warmup = 2000,
-  iter_sampling = 2000,
-  adapt_delta = 0.99
-)
+  fit <- mod$sample(
+    data = data_list,
+    seed = seed,
+    chains = nchains,
+    parallel_chains = parallel_chains,
+    iter_warmup = iter_warmup,
+    iter_sampling = iter_sampling,
+    adapt_delta = adapt_delta
+  )
 
-fit2 <- mod1$sample(
-  data = data_list,
-  seed = 1234,
-  chains = 10,
-  parallel_chains = 10,
-  iter_warmup = 2000,
-  iter_sampling = 2000
-)
-
-fit1_draws <-
-  fit1$draws(variables = c("alpha_main", "beta_t", "beta_x", "beta_x_t_interaction",
-                          "beta", "sigma_main", "sigma_re", "corr_rand_effects"))
-
-fit2 <- mod2$sample(
-  data = data_list,
-  seed = 1234,
-  chains = 10,
-  parallel_chains = 10,
-  iter_warmup = 500,
-  iter_sampling = 500,
-  adapt_delta = 0.99
-)
-
-fit2_draws <-
-  fit1$draws(variables = c("alpha_main", "beta_t", "beta_x", "beta_x_t_interaction",
-                           "beta", "sigma_main", "sigma_re", "corr_rand_effects"))
-
-  posterior::as_draws(fit1) |>
-  posterior::subset_draws(variable = c("beta_x", "beta[1]", "beta_t")) |>
-  posterior::summarise_draws()
-
-posterior::summarise_draws(fit1, "beta")
-
-library(shinystan)
-my_sso <- launch_shinystan(fit1)
+  return(fit)
+}

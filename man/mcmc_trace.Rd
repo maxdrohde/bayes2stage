@@ -2,10 +2,18 @@
 % Please edit documentation in R/misc.R
 \name{mcmc_trace}
 \alias{mcmc_trace}
-\title{Plot / Summarize MCMC Output}
+\title{Plot MCMC trace plots}
 \usage{
 mcmc_trace(mcmc_output, print_to_pdf = FALSE)
 }
+\arguments{
+\item{mcmc_output}{MCMC output object (e.g., from fit_model)}
+
+\item{print_to_pdf}{Logical; if TRUE, saves trace plots to a PDF file}
+}
+\value{
+Trace plots of MCMC samples
+}
 \description{
-Plot / Summarize MCMC Output
+A wrapper around MCMCvis::MCMCtrace to create trace plots of MCMC samples.
 }

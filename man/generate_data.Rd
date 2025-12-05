@@ -2,8 +2,7 @@
 % Please edit documentation in R/generate_data.R
 \name{generate_data}
 \alias{generate_data}
-\title{Generate correlated random intercept / slope longitudinal data
-to test two-stage design methods.}
+\title{Generate correlated random intercept / slope longitudinal data}
 \usage{
 generate_data(
   N = 2000,
@@ -28,12 +27,49 @@ generate_data(
 )
 }
 \arguments{
-\item{N}{TO DO}
+\item{N}{Number of subjects (default: 2000)}
+
+\item{M}{Number of time points per subject (default: 5)}
+
+\item{alpha_main}{Intercept for the main model (default: 1)}
+
+\item{beta_x}{Coefficient for x in the main model (default: 1)}
+
+\item{beta_z}{Coefficient for z in the main model (default: 1)}
+
+\item{beta_t}{Coefficient for time in the main model (default: 2)}
+
+\item{beta_t_x_interaction}{Coefficient for time-x interaction (default: 0.3)}
+
+\item{beta_t_z_interaction}{Coefficient for time-z interaction (default: 0)}
+
+\item{error_sd}{Standard deviation of residual error (default: 4)}
+
+\item{x_dist}{Distribution for x: "normal", "poisson", "binomial",
+"negative_binomial", or "beta_binomial" (default: "normal")}
+
+\item{x_size}{Size parameter for binomial/beta_binomial distributions}
+
+\item{x_disp_param}{Dispersion parameter for negative_binomial/beta_binomial}
+
+\item{rand_intercept_sd}{Standard deviation of random intercepts (default: 3)}
+
+\item{rand_slope_sd}{Standard deviation of random slopes (default: 1)}
+
+\item{rand_eff_corr}{Correlation between random intercepts and slopes (default: 0)}
+
+\item{gamma0}{Intercept for the imputation model (default: 1)}
+
+\item{gamma1}{Linear coefficient for z in the imputation model (default: 1)}
+
+\item{gamma2}{Quadratic coefficient for z in the imputation model (default: 0)}
+
+\item{gamma_sd}{Standard deviation for the imputation model (normal distribution only) (default: 2)}
 }
 \value{
-TO DO
+A data frame with simulated longitudinal data
 }
 \description{
-Generate correlated random intercept / slope longitudinal data
-to test two-stage design methods.
+Generates simulated longitudinal data with correlated random intercepts
+and slopes for testing two-stage design methods.
 }

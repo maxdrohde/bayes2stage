@@ -1,0 +1,24 @@
+Package: bayes2stage
+Title: Bayesian Analysis of Two-Stage Designs
+Version: 0.0.0.9000
+Authors@R: 
+    person("Maximilian", "Rohde", , "maxdrohde@gmail.com", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-3731-3372"))
+Author: Maximilian Rohde [aut, cre] (<https://orcid.org/0000-0002-3731-3372>)
+Maintainer: Maximilian Rohde <maxdrohde@gmail.com>
+Description: Provides functions for analyzing Bayesian Two-Stage Designs
+    using NIMBLE for model fitting, and for generating simulated data from
+    two-stage designs.
+License: MIT + file LICENSE
+URL: https://github.com/maxdrohde/bayes2stage
+BugReports: https://github.com/maxdrohde/bayes2stage/issues
+Depends: MASS, mvtnorm, nimble, nimbleEcology, nimbleMacros, numDeriv,
+        R (>= 4.1.0)
+Imports: data.table, dplyr, extraDistr, ggplot2, glue, instantiate,
+        lme4, MCMCvis, patchwork, purrr, rlang, stats, tibble
+Suggests: testthat (>= 3.0.0)
+Config/testthat/edition: 3
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Built: R 4.4.2; aarch64-apple-darwin20; 2025-12-05 12:01:46 UTC; unix

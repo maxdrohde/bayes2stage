@@ -1,7 +1,11 @@
-#' fit_acml_ods
+#' Fit ACML model for outcome-dependent sampling
 #'
-#' @param ods_df ods_df
-#' @return params with conf ints
+#' Fits an ascertainment-corrected maximum likelihood model for ODS designs.
+#'
+#' @param ods_df Data frame from ODS sampling
+#' @param cutoff_low Lower cutoff value for sampling regions
+#' @param cutoff_high Upper cutoff value for sampling regions
+#' @return A data frame with parameter estimates and confidence intervals
 #' @export
 fit_acml_ods <- function(ods_df,
                          cutoff_low,
