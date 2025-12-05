@@ -1,0 +1,109 @@
+---
+title: "Test ODS and BDS"
+---
+
+# Setup
+
+```{r}
+library(bayes2stage)
+library(tidyverse)
+library(patchwork)
+```
+
+Generate data
+
+```{r}
+# Data parameters
+N_SUBJECTS <- 5000L
+M <- 5L
+sampling_N <- as.integer(0.2 * N_SUBJECTS)
+
+# Sampling parameters
+sampling_type <- "slope"
+cutoff_high <- 0.9
+cutoff_low <- 0.1
+prop_high <- 0.40
+prop_middle <- 0.20
+prop_low <- 0.40
+```
+
+```{r}
+df <- generate_data(x_dist = "normal", 
+                    N = N_SUBJECTS, error_sd = 1)
+
+srs_df <- bayes2stage::srs_design(df, sampling_N)
+
+ods_df <- bayes2stage::ods_design(df,
+                                  sampling_type = sampling_type,
+                                  cutoff_high = cutoff_high,
+                                  cutoff_low = cutoff_low,
+                                  sampling_N = sampling_N,
+                                  prop_high = prop_high,
+                                  prop_middle = prop_middle,
+                                  prop_low = prop_low)
+
+bds_df <- bayes2stage::bds_design(df,
+                                  fixed_effects_formula = y ~ t + z,
+                                  sampling_type = sampling_type,
+                                  cutoff_high = cutoff_high,
+                                  cutoff_low = cutoff_low,
+                                  sampling_N = sampling_N,
+                                  prop_high = prop_high,
+                                  prop_middle = prop_middle,
+                                  prop_low = prop_low)
+```
+
+```{r}
+p1 <- ods_df |>
+  distinct(id, .keep_all = TRUE) |>
+  ggplot() +
+  aes(x = rand_int,
+      y = target,
+      color = selected) +
+  geom_point(alpha = 0.8) +
+  theme_bw()
+
+p2 <- ods_df |>
+  distinct(id, .keep_all = TRUE) |>
+  ggplot() +
+  aes(x = rand_slope,
+      y = target,
+      color = selected) +
+  geom_point(alpha = 0.8) +
+  theme_bw()
+
+p1 + p2
+```
+
+```{r}
+p1 <- bds_df |>
+  distinct(id, .keep_all = TRUE) |>
+  ggplot() +
+  aes(x = rand_int,
+      y = target,
+      color = selected) +
+  geom_point(alpha = 0.8) +
+  theme_bw()
+
+p2 <- bds_df |>
+  distinct(id, .keep_all = TRUE) |>
+  ggplot() +
+  aes(x = rand_slope,
+      y = target,
+      color = selected) +
+  geom_point(alpha = 0.8) +
+  theme_bw()
+
+p1 + p2
+```
+
+```{r}
+bds_df |>
+  distinct(id, .keep_all = TRUE) |>
+  ggplot() +
+  aes(x = rand_slope,
+      color = category) +
+  geom_density(alpha = 0.8) +
+  theme_bw()
+```
+
