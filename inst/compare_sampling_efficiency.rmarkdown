@@ -1,0 +1,672 @@
+---
+title: "MCMC Sampling Performance Comparison"
+subtitle: "Centered vs Non-Centered Parameterization"
+author: "Your Name"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 10
+    fig-height: 6
+execute:
+  warning: false
+  message: false
+---
+
+```{r}
+format_data_mcmc <- function(dataset,
+                             main_vars = NULL,   # columns in the main model
+                             imputation_vars = NULL)   # columns in the imputation model
+  {
+
+  dataset <-
+    dataset |>
+    dplyr::arrange(id, t)
+
+  # Re-index id to 1..G
+  dataset <-
+    dataset |>
+    dplyr::mutate(id_idx = as.integer(factor(id)))
+
+  id_df <-
+    dataset |>
+    dplyr::distinct(id_idx,
+                    .keep_all = TRUE) |>
+    dplyr::arrange(id_idx)
+
+  X <- as.matrix(dataset[, main_vars, drop = FALSE])
+  Z <- as.matrix(id_df[, imputation_vars, drop = FALSE])
+
+  P <- ncol(X)
+  S <- ncol(Z)
+
+  data_list <-
+    list(
+      N       = nrow(dataset),
+      G       = nrow(id_df),
+      G_obs   = sum(!is.na(id_df$x)),
+      G_mis   = sum(is.na(id_df$x)),
+      P       = P,
+      S       = S,
+      t       = dataset$t,
+      X       = X,
+      Z       = Z,
+      y       = dataset$y,
+      index_obs = which(!is.na(id_df$x)),
+      index_mis = which(is.na(id_df$x)),
+      x_obs     = id_df$x[!is.na(id_df$x)],
+      id        = dataset$id_idx
+    )
+
+  return(data_list)
+}
+```
+
+```{r}
+#| label: setup
+#| code-fold: false
+
+library(cmdstanr)
+library(posterior)
+library(bayesplot)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(patchwork)
+library(knitr)
+
+color_scheme_set("viridis")
+```
+
+## Overview
+This document compares MCMC sampling performance between two parameterizations of the same Bayesian model:
+
+We evaluate convergence diagnostics, sampling efficiency, and identify problematic parameters.
+
+## Model Fitting
+```{r}
+#| label: fit-models
+
+mod1 <- cmdstanr::cmdstan_model("~/r_package_development/bayes2stage/inst/stan_models/mixed_effects_imputation.stan")
+
+df <- bayes2stage::generate_data(N = 300,
+                                 x_dist = "normal") |>
+  bayes2stage::srs_design(N = 100)
+
+data_list <- format_data_mcmc(df,
+                              main_vars = c("z"),
+                              imputation_vars = c("z"))
+
+fit1 <- mod1$sample(
+  data = data_list,
+  seed = 1234,
+  chains = 12,
+  parallel_chains = 12,
+  iter_warmup = 5000,
+  iter_sampling = 5000,
+  adapt_delta = 0.85
+)
+
+fit2 <- mod1$sample(
+  data = data_list,
+  seed = 1234,
+  chains = 12,
+  parallel_chains = 12,
+  iter_warmup = 5000,
+  iter_sampling = 5000,
+  adapt_delta = 0.8
+)
+```
+
+## Diagnostic Computation
+```{r}
+#| label: compute-diagnostics
+
+# Helper: identify main parameters (exclude mass imputed latent values)
+get_main_params <- function(fit) {
+  all_vars <- fit$metadata()$stan_variables
+
+  all_vars[!grepl("^(z_imp|y_imp|x_imp|_raw$|_latent$)", all_vars)]
+}
+
+cat("Model 1 variables:", paste(get_main_params(fit1), collapse = ", "), "\n")
+cat("Model 2 variables:", paste(get_main_params(fit2), collapse = ", "))
+```
+
+```{r}
+#| label: cache-summaries
+
+# Cache expensive computations
+main_params1 <- get_main_params(fit1)
+main_params2 <- get_main_params(fit2)
+
+summ1 <- fit1$summary(variables = main_params1)
+summ2 <- fit2$summary(variables = main_params2)
+```
+
+```{r}
+#| label: extract-diagnostics
+
+extract_diagnostics <- function(fit, model_name) {
+  sampler_diag <- fit$sampler_diagnostics(format = "df")
+  list(
+    model = model_name,
+    n_divergent = sum(sampler_diag$divergent__),
+    pct_divergent = mean(sampler_diag$divergent__) * 100,
+    max_treedepth_hit = sum(sampler_diag$treedepth__ >= 10),
+    mean_treedepth = mean(sampler_diag$treedepth__),
+    total_time = fit$time()$total,
+    warmup_time = sum(fit$time()$chains$warmup),
+    sampling_time = sum(fit$time()$chains$sampling),
+    sampler_diag = sampler_diag
+  )
+}
+
+diag1 <- extract_diagnostics(fit1, "Model 1 (Non-centered)")
+diag2 <- extract_diagnostics(fit2, "Model 2 (Centered)")
+```
+
+```{r}
+#| label: compute-ebfmi
+
+compute_ebfmi <- function(sampler_diag) {
+  chains <- unique(sampler_diag$.chain)
+  ebfmi_vals <- sapply(chains, function(ch) {
+    energy <- sampler_diag$energy__[sampler_diag$.chain == ch]
+    num <- sum(diff(energy)^2) / length(energy)
+    denom <- var(energy)
+    num / denom
+  })
+  list(per_chain = ebfmi_vals, min = min(ebfmi_vals), 
+       mean = mean(ebfmi_vals), problematic = sum(ebfmi_vals < 0.3))
+}
+
+ebfmi1 <- compute_ebfmi(diag1$sampler_diag)
+ebfmi2 <- compute_ebfmi(diag2$sampler_diag)
+```
+
+```{r}
+#| label: ess-rhat-summary
+
+get_ess_rhat_summary <- function(summ, model_name) {
+  tibble(
+    model = model_name,
+    ess_bulk_min = min(summ$ess_bulk, na.rm = TRUE),
+    ess_bulk_median = median(summ$ess_bulk, na.rm = TRUE),
+    ess_bulk_mean = mean(summ$ess_bulk, na.rm = TRUE),
+    n_low_ess_bulk = sum(summ$ess_bulk < 400, na.rm = TRUE),
+    ess_tail_min = min(summ$ess_tail, na.rm = TRUE),
+    ess_tail_median = median(summ$ess_tail, na.rm = TRUE),
+    ess_tail_mean = mean(summ$ess_tail, na.rm = TRUE),
+    n_low_ess_tail = sum(summ$ess_tail < 400, na.rm = TRUE),
+    rhat_max = max(summ$rhat, na.rm = TRUE),
+    rhat_mean = mean(summ$rhat, na.rm = TRUE),
+    n_high_rhat = sum(summ$rhat > 1.01, na.rm = TRUE),
+    n_very_high_rhat = sum(summ$rhat > 1.05, na.rm = TRUE)
+  )
+}
+
+ess_rhat1 <- get_ess_rhat_summary(summ1, "Model 1")
+ess_rhat2 <- get_ess_rhat_summary(summ2, "Model 2")
+```
+
+```{r}
+#| label: parameter-comparison
+
+params1 <- summ1 |> mutate(model = "Model 1")
+params2 <- summ2 |> mutate(model = "Model 2")
+
+common_params <- intersect(
+  params1$variable[!grepl("^lp__|__$", params1$variable)],
+  params2$variable[!grepl("^lp__|__$", params2$variable)]
+)
+
+only_m1 <- setdiff(params1$variable, params2$variable)
+only_m2 <- setdiff(params2$variable, params1$variable)
+
+if (length(only_m1) > 0 || length(only_m2) > 0) {
+  cat("Parameters unique to Model 1:", head(only_m1, 10), "\n")
+  cat("Parameters unique to Model 2:", head(only_m2, 10), "\n")
+  cat("Comparing", length(common_params), "common parameters.\n")
+}
+
+if (length(common_params) == 0) stop("No common parameters found.")
+
+ess_comparison <- inner_join(
+  params1 |> select(variable, ess_bulk_m1 = ess_bulk, ess_tail_m1 = ess_tail, rhat_m1 = rhat),
+  params2 |> select(variable, ess_bulk_m2 = ess_bulk, ess_tail_m2 = ess_tail, rhat_m2 = rhat),
+  by = "variable"
+) |>
+  mutate(
+    ess_bulk_ratio = ess_bulk_m1 / ess_bulk_m2,
+    ess_tail_ratio = ess_tail_m1 / ess_tail_m2,
+    m1_better_bulk = ess_bulk_m1 > ess_bulk_m2,
+    m1_better_tail = ess_tail_m1 > ess_tail_m2
+  )
+```
+
+```{r}
+#| label: efficiency
+
+compute_ess_per_sec <- function(summ, total_time, model_name) {
+  tibble(
+    model = model_name,
+    ess_bulk_per_sec_min = min(summ$ess_bulk, na.rm = TRUE) / total_time,
+    ess_bulk_per_sec_median = median(summ$ess_bulk, na.rm = TRUE) / total_time,
+    ess_tail_per_sec_min = min(summ$ess_tail, na.rm = TRUE) / total_time,
+    ess_tail_per_sec_median = median(summ$ess_tail, na.rm = TRUE) / total_time,
+    total_time_sec = total_time
+  )
+}
+
+efficiency1 <- compute_ess_per_sec(summ1, diag1$total_time, "Model 1")
+efficiency2 <- compute_ess_per_sec(summ2, diag2$total_time, "Model 2")
+```
+
+## Summary Table {#sec-summary}
+```{r}
+#| label: tbl-summary
+#| tbl-cap: "MCMC Diagnostics Comparison"
+
+summary_table <- tibble(
+  Metric = c(
+    "Total Time (sec)", "Warmup Time (sec)", "Sampling Time (sec)",
+    "Divergent Transitions", "% Divergent", "Max Treedepth Hits", "Mean Treedepth",
+    "Min E-BFMI", "Chains with Low E-BFMI (<0.3)",
+    "Min Bulk ESS", "Median Bulk ESS", "Params with Bulk ESS < 400",
+    "Min Tail ESS", "Median Tail ESS", "Params with Tail ESS < 400",
+    "Max Rhat", "Params with Rhat > 1.01", "Params with Rhat > 1.05",
+    "Min Bulk ESS/sec", "Median Bulk ESS/sec"
+  ),
+  `Model 1` = c(
+    round(diag1$total_time, 2), round(diag1$warmup_time, 2), round(diag1$sampling_time, 2),
+    diag1$n_divergent, round(diag1$pct_divergent, 4), diag1$max_treedepth_hit, round(diag1$mean_treedepth, 2),
+    round(ebfmi1$min, 3), ebfmi1$problematic,
+    round(ess_rhat1$ess_bulk_min, 0), round(ess_rhat1$ess_bulk_median, 0), ess_rhat1$n_low_ess_bulk,
+    round(ess_rhat1$ess_tail_min, 0), round(ess_rhat1$ess_tail_median, 0), ess_rhat1$n_low_ess_tail,
+    round(ess_rhat1$rhat_max, 4), ess_rhat1$n_high_rhat, ess_rhat1$n_very_high_rhat,
+    round(efficiency1$ess_bulk_per_sec_min, 2), round(efficiency1$ess_bulk_per_sec_median, 2)
+  ),
+  `Model 2` = c(
+    round(diag2$total_time, 2), round(diag2$warmup_time, 2), round(diag2$sampling_time, 2),
+    diag2$n_divergent, round(diag2$pct_divergent, 4), diag2$max_treedepth_hit, round(diag2$mean_treedepth, 2),
+    round(ebfmi2$min, 3), ebfmi2$problematic,
+    round(ess_rhat2$ess_bulk_min, 0), round(ess_rhat2$ess_bulk_median, 0), ess_rhat2$n_low_ess_bulk,
+    round(ess_rhat2$ess_tail_min, 0), round(ess_rhat2$ess_tail_median, 0), ess_rhat2$n_low_ess_tail,
+    round(ess_rhat2$rhat_max, 4), ess_rhat2$n_high_rhat, ess_rhat2$n_very_high_rhat,
+    round(efficiency2$ess_bulk_per_sec_min, 2), round(efficiency2$ess_bulk_per_sec_median, 2)
+  )
+)
+
+kable(summary_table)
+```
+
+## Parameter Estimates Comparison
+
+### Estimates Table
+```{r}
+#| label: tbl-estimates
+#| tbl-cap: "Posterior estimates comparison for common parameters (excluding array parameters)."
+
+# Get scalar parameters (no brackets) for cleaner table
+scalar_params <- common_params[!grepl("\\[", common_params)]
+
+if (length(scalar_params) > 0) {
+  estimates_comparison <- inner_join(
+    summ1 |> 
+      filter(variable %in% scalar_params) |>
+      select(variable, mean_m1 = mean, sd_m1 = sd, q5_m1 = q5, q95_m1 = q95),
+    summ2 |> 
+      filter(variable %in% scalar_params) |>
+      select(variable, mean_m2 = mean, sd_m2 = sd, q5_m2 = q5, q95_m2 = q95),
+    by = "variable"
+  ) |>
+    mutate(
+      mean_diff = mean_m1 - mean_m2,
+      mean_pct_diff = (mean_m1 - mean_m2) / abs(mean_m2) * 100,
+      sd_ratio = sd_m1 / sd_m2
+    )
+  
+  estimates_comparison |>
+    mutate(across(where(is.numeric), ~round(.x, 4))) |>
+    select(
+      Parameter = variable,
+      `Mean (M1)` = mean_m1, `Mean (M2)` = mean_m2, `Mean Diff` = mean_diff,
+      `SD (M1)` = sd_m1, `SD (M2)` = sd_m2, `SD Ratio` = sd_ratio
+    ) |>
+    kable()
+} else {
+  cat("No scalar parameters found for comparison table.")
+}
+```
+
+### Posterior Comparison Plot
+```{r}
+#| label: fig-estimates
+#| fig-cap: "Posterior mean comparison. Points on the diagonal indicate identical estimates between models."
+#| fig-height: 5
+
+if (length(scalar_params) > 0) {
+  ggplot(estimates_comparison, aes(x = mean_m1, y = mean_m2)) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray50") +
+    geom_errorbar(aes(ymin = q5_m2, ymax = q95_m2), alpha = 0.3, width = 0) +
+    geom_errorbarh(aes(xmin = q5_m1, xmax = q95_m1), alpha = 0.3, height = 0) +
+    geom_point(size = 2, color = "steelblue") +
+    geom_text(aes(label = variable), hjust = -0.1, vjust = -0.5, size = 3, check_overlap = TRUE) +
+    labs(
+      title = "Posterior Mean Comparison",
+      subtitle = "Error bars show 90% credible intervals",
+      x = "Model 1 (Posterior Mean)",
+      y = "Model 2 (Posterior Mean)"
+    ) +
+    theme_minimal() +
+    coord_fixed()
+}
+```
+
+### Credible Interval Overlap
+```{r}
+#| label: fig-interval-comparison
+#| fig-cap: "Side-by-side comparison of 90% credible intervals."
+#| fig-height: 8
+
+if (length(scalar_params) > 0 && length(scalar_params) <= 30) {
+  estimates_long <- estimates_comparison |>
+    select(variable, mean_m1, q5_m1, q95_m1, mean_m2, q5_m2, q95_m2) |>
+    pivot_longer(
+      cols = -variable,
+      names_to = c(".value", "model"),
+      names_pattern = "(.+)_m(\\d)"
+    ) |>
+    mutate(model = ifelse(model == "1", "Model 1", "Model 2"))
+  
+  ggplot(estimates_long, aes(x = mean, y = variable, color = model)) +
+    geom_pointrange(aes(xmin = q5, xmax = q95), position = position_dodge(width = 0.5)) +
+    labs(x = "Estimate (90% CI)", y = NULL, color = NULL) +
+    theme_minimal() +
+    theme(legend.position = "top")
+} else if (length(scalar_params) > 30) {
+  cat("Too many scalar parameters for interval plot. Showing first 30.\n")
+  
+  top_params <- head(scalar_params, 30)
+  estimates_long <- estimates_comparison |>
+    filter(variable %in% top_params) |>
+    select(variable, mean_m1, q5_m1, q95_m1, mean_m2, q5_m2, q95_m2) |>
+    pivot_longer(
+      cols = -variable,
+      names_to = c(".value", "model"),
+      names_pattern = "(.+)_m(\\d)"
+    ) |>
+    mutate(model = ifelse(model == "1", "Model 1", "Model 2"))
+  
+  ggplot(estimates_long, aes(x = mean, y = variable, color = model)) +
+    geom_pointrange(aes(xmin = q5, xmax = q95), position = position_dodge(width = 0.5)) +
+    labs(x = "Estimate (90% CI)", y = NULL, color = NULL) +
+    theme_minimal() +
+    theme(legend.position = "top")
+}
+```
+
+### Estimate Agreement Summary
+```{r}
+#| label: estimate-agreement
+
+if (length(scalar_params) > 0) {
+  agreement_summary <- estimates_comparison |>
+    summarise(
+      n_params = n(),
+      mean_abs_diff = mean(abs(mean_diff)),
+      max_abs_diff = max(abs(mean_diff)),
+      mean_pct_diff = mean(abs(mean_pct_diff), na.rm = TRUE),
+      mean_sd_ratio = mean(sd_ratio),
+      intervals_overlap = sum(q5_m1 <= q95_m2 & q5_m2 <= q95_m1) / n() * 100
+    )
+  
+  cat("**Agreement Statistics:**\n\n")
+  cat(sprintf("- Parameters compared: %d\n", agreement_summary$n_params))
+  cat(sprintf("- Mean absolute difference in posterior means: %.4f\n", agreement_summary$mean_abs_diff))
+  cat(sprintf("- Max absolute difference in posterior means: %.4f\n", agreement_summary$max_abs_diff))
+  cat(sprintf("- Mean SD ratio (M1/M2): %.3f\n", agreement_summary$mean_sd_ratio))
+  cat(sprintf("- 90%% credible interval overlap: %.1f%%\n", agreement_summary$intervals_overlap))
+  
+  if (agreement_summary$intervals_overlap < 90) {
+    cat("\n::: {.callout-warning}\n")
+    cat("Less than 90% of credible intervals overlap. Investigate parameters with large discrepancies.\n")
+    cat(":::\n")
+  } else {
+    cat("\n::: {.callout-tip}\n")
+    cat("Good agreement between models. Both parameterizations yield similar posterior inference.\n")
+    cat(":::\n")
+  }
+}
+```
+
+## Effective Sample Size
+
+### ESS Comparison
+```{r}
+#| label: fig-ess-comparison
+#| fig-cap: "Bulk and Tail ESS comparison across parameters. Points above the diagonal indicate Model 2 has higher ESS."
+#| fig-height: 5
+
+p_ess_bulk <- ess_comparison |>
+  ggplot(aes(x = ess_bulk_m1, y = ess_bulk_m2)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray50") +
+  geom_point(alpha = 0.5, size = 2) +
+  geom_hline(yintercept = 400, linetype = "dotted", color = "red") +
+  geom_vline(xintercept = 400, linetype = "dotted", color = "red") +
+  scale_x_log10() + scale_y_log10() +
+  labs(title = "Bulk ESS", x = "Model 1", y = "Model 2") +
+  theme_minimal() + coord_fixed()
+
+p_ess_tail <- ess_comparison |>
+  ggplot(aes(x = ess_tail_m1, y = ess_tail_m2)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray50") +
+  geom_point(alpha = 0.5, size = 2) +
+  geom_hline(yintercept = 400, linetype = "dotted", color = "red") +
+  geom_vline(xintercept = 400, linetype = "dotted", color = "red") +
+  scale_x_log10() + scale_y_log10() +
+  labs(title = "Tail ESS", x = "Model 1", y = "Model 2") +
+  theme_minimal() + coord_fixed()
+
+p_ess_bulk + p_ess_tail
+```
+
+### ESS Ratio Distribution
+```{r}
+#| label: fig-ess-ratio
+#| fig-cap: "Distribution of ESS ratios (Model 1 / Model 2). Ratio > 1 indicates Model 1 is more efficient."
+#| fig-height: 6
+
+ess_comparison |>
+  select(variable, ess_bulk_ratio, ess_tail_ratio) |>
+  pivot_longer(cols = c(ess_bulk_ratio, ess_tail_ratio), 
+               names_to = "type", values_to = "ratio") |>
+  mutate(type = ifelse(type == "ess_bulk_ratio", "Bulk ESS", "Tail ESS")) |>
+  ggplot(aes(x = ratio, fill = type)) +
+  geom_histogram(bins = 50, alpha = 0.7, position = "identity") +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "red", linewidth = 1) +
+  scale_x_log10() +
+  facet_wrap(~type, ncol = 1) +
+  labs(x = "ESS Ratio (log scale)", y = "Count") +
+  theme_minimal() + theme(legend.position = "none")
+```
+
+## Convergence Diagnostics
+
+### Rhat Comparison
+```{r}
+#| label: fig-rhat
+#| fig-cap: "Rhat comparison. Orange line: 1.01 threshold. Red line: 1.05 threshold."
+#| fig-height: 5
+
+ess_comparison |>
+  ggplot(aes(x = rhat_m1, y = rhat_m2)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray50") +
+  geom_point(alpha = 0.5, size = 2) +
+  geom_hline(yintercept = c(1.01, 1.05), linetype = "dotted", color = c("orange", "red")) +
+  geom_vline(xintercept = c(1.01, 1.05), linetype = "dotted", color = c("orange", "red")) +
+  labs(title = "Rhat Comparison", x = "Model 1", y = "Model 2") +
+  theme_minimal() + coord_fixed()
+```
+
+### Trace Plots (Lowest ESS Parameters)
+```{r}
+#| label: fig-trace-m1
+#| fig-cap: "Model 1: Trace plots for 16 parameters with lowest bulk ESS."
+#| fig-height: 10
+
+worst_params_m1 <- params1 |>
+  filter(!grepl("^lp__|__$", variable)) |>
+  arrange(ess_bulk) |>
+  head(16) |>
+  pull(variable)
+
+if (length(worst_params_m1) > 0) {
+  draws1 <- fit1$draws(variables = worst_params_m1)
+  mcmc_trace(draws1, facet_args = list(ncol = 4)) +
+    ggtitle("Model 1: Lowest ESS Parameters")
+}
+```
+
+```{r}
+#| label: fig-trace-m2
+#| fig-cap: "Model 2: Trace plots for 16 parameters with lowest bulk ESS."
+#| fig-height: 10
+
+worst_params_m2 <- params2 |>
+  filter(!grepl("^lp__|__$", variable)) |>
+  arrange(ess_bulk) |>
+  head(16) |>
+  pull(variable)
+
+if (length(worst_params_m2) > 0) {
+  draws2 <- fit2$draws(variables = worst_params_m2)
+  mcmc_trace(draws2, facet_args = list(ncol = 4)) +
+    ggtitle("Model 2: Lowest ESS Parameters")
+}
+```
+
+### Rank Histograms
+```{r}
+#| label: fig-rank
+#| fig-cap: "Rank histograms should appear uniform if chains are mixing well."
+#| fig-height: 8
+
+rank_params <- head(common_params[!grepl("\\[", common_params)], 6)
+if (length(rank_params) < 6) rank_params <- head(common_params, 6)
+
+if (length(rank_params) > 0) {
+  draws1_rank <- fit1$draws(variables = rank_params)
+  draws2_rank <- fit2$draws(variables = rank_params)
+  
+  p1 <- mcmc_rank_hist(draws1_rank) + ggtitle("Model 1")
+  p2 <- mcmc_rank_hist(draws2_rank) + ggtitle("Model 2")
+  p1 / p2
+}
+```
+
+## Energy Diagnostics
+```{r}
+#| label: fig-energy
+#| fig-cap: "NUTS energy diagnostic. Overlapping distributions indicate good sampling."
+#| fig-height: 4
+
+np1 <- nuts_params(fit1)
+np2 <- nuts_params(fit2)
+
+p1 <- mcmc_nuts_energy(np1) + ggtitle("Model 1")
+p2 <- mcmc_nuts_energy(np2) + ggtitle("Model 2")
+p1 + p2
+```
+
+## Treedepth Distribution
+```{r}
+#| label: fig-treedepth
+#| fig-cap: "Distribution of treedepths. High values may indicate difficult geometry."
+
+treedepth_df <- bind_rows(
+
+  diag1$sampler_diag |> mutate(model = "Model 1") |> select(model, treedepth__),
+  diag2$sampler_diag |> mutate(model = "Model 2") |> select(model, treedepth__)
+)
+
+ggplot(treedepth_df, aes(x = treedepth__, fill = model)) +
+  geom_bar(position = "dodge", alpha = 0.7) +
+  labs(x = "Treedepth", y = "Count", fill = "Model") +
+  theme_minimal()
+```
+
+## Pairs Plots (If Divergences Present)
+```{r}
+#| label: fig-pairs
+#| fig-cap: "Pairs plots highlighting divergent transitions (if any)."
+#| fig-height: 8
+#| eval: !expr (diag1$n_divergent > 0 || diag2$n_divergent > 0)
+
+if (diag1$n_divergent > 0 && length(worst_params_m1) >= 2) {
+  pairs_params1 <- worst_params_m1[1:min(4, length(worst_params_m1))]
+  mcmc_pairs(fit1$draws(variables = pairs_params1), np = np1,
+             off_diag_args = list(size = 0.5, alpha = 0.3))
+}
+
+if (diag2$n_divergent > 0 && length(worst_params_m2) >= 2) {
+  pairs_params2 <- worst_params_m2[1:min(4, length(worst_params_m2))]
+  mcmc_pairs(fit2$draws(variables = pairs_params2), np = np2,
+             off_diag_args = list(size = 0.5, alpha = 0.3))
+}
+```
+
+## Recommendation
+```{r}
+#| label: recommendation
+#| results: asis
+
+winners <- c(
+  divergences = ifelse(diag1$n_divergent < diag2$n_divergent, "Model 1",
+                       ifelse(diag1$n_divergent > diag2$n_divergent, "Model 2", "Tie")),
+  min_ess_bulk = ifelse(ess_rhat1$ess_bulk_min > ess_rhat2$ess_bulk_min, "Model 1", "Model 2"),
+  min_ess_tail = ifelse(ess_rhat1$ess_tail_min > ess_rhat2$ess_tail_min, "Model 1", "Model 2"),
+  max_rhat = ifelse(ess_rhat1$rhat_max < ess_rhat2$rhat_max, "Model 1", "Model 2"),
+  efficiency = ifelse(efficiency1$ess_bulk_per_sec_min > efficiency2$ess_bulk_per_sec_min, "Model 1", "Model 2"),
+  ebfmi = ifelse(ebfmi1$min > ebfmi2$min, "Model 1", "Model 2")
+)
+
+model1_wins <- sum(winners == "Model 1")
+model2_wins <- sum(winners == "Model 2")
+
+cat("### Metric-by-Metric Results\n\n")
+cat("| Metric | Winner |\n|--------|--------|\n")
+for (i in seq_along(winners)) {
+  cat(sprintf("| %s | %s |\n", names(winners)[i], winners[i]))
+}
+
+cat(sprintf("\n**Overall: Model 1 wins %d metrics, Model 2 wins %d metrics.**\n\n", model1_wins, model2_wins))
+
+if (diag1$n_divergent > 0 || diag2$n_divergent > 0) {
+  cat("::: {.callout-warning}\n## Divergent Transitions Detected\n")
+  cat("Consider increasing `adapt_delta`, reparameterizing, or checking for prior-data conflict.\n:::\n\n")
+}
+
+if (ess_rhat1$rhat_max > 1.01 || ess_rhat2$rhat_max > 1.01) {
+  cat("::: {.callout-warning}\n## Rhat > 1.01 Detected
+\n")
+  cat("Consider running more iterations or checking for multimodality.\n:::\n\n")
+}
+
+if (model1_wins > model2_wins) {
+  cat("::: {.callout-tip}\n## Recommendation\n")
+  cat("**Model 1 (non-centered)** performs better overall. This is typical when data are weak relative to the prior.\n:::\n")
+} else if (model2_wins > model1_wins) {
+  cat("::: {.callout-tip}\n## Recommendation\n")
+  cat("**Model 2 (centered)** performs better overall. This is typical when data are strong relative to the prior.\n:::\n")
+} else {
+  cat("::: {.callout-note}\n## Recommendation\n")
+  cat("Both models perform similarly. Choose based on interpretability or other considerations.\n:::\n")
+}
+```
+
