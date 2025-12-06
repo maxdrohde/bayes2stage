@@ -14,6 +14,10 @@ Useful links:
 
 - <https://github.com/maxdrohde/bayes2stage>
 
+- <https://maxdrohde.github.io/bayes2stage>
+
+- <https://maxdrohde.github.io/bayes2stage/>
+
 - Report bugs at <https://github.com/maxdrohde/bayes2stage/issues>
 
 ## Author
