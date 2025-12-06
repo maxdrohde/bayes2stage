@@ -12,6 +12,8 @@ Tools for designing and analyzing two-stage studies with longitudinal data. Supp
 Useful links:
 \itemize{
   \item \url{https://github.com/maxdrohde/bayes2stage}
+  \item \url{https://maxdrohde.github.io/bayes2stage}
+  \item \url{https://maxdrohde.github.io/bayes2stage/}
   \item Report bugs at \url{https://github.com/maxdrohde/bayes2stage/issues}
 }
 
