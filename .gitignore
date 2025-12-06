@@ -17,3 +17,6 @@ src/stan/mixed_effects_imputation_negative_binomial_optimized
 # Compiled symbols
 src/symbols.rds
 inst/.quarto
+
+# Analysis folder (development/research scripts)
+analysis/
