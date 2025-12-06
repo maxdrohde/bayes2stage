@@ -40,6 +40,7 @@ reference:
 - title: Utilities
   desc: Helper functions
   contents:
+  - cantor_seed
   - format_data_mcmc
   - set_missing
   - plot_data

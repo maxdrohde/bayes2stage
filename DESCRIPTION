@@ -12,7 +12,7 @@ Description: Tools for designing and analyzing two-stage studies with
     Also provides ascertainment-corrected maximum likelihood (ACML) estimation
     and legacy support for 'NIMBLE'-based fitting.
 License: MIT + file LICENSE
-URL: https://github.com/maxdrohde/bayes2stage
+URL: https://github.com/maxdrohde/bayes2stage, https://maxdrohde.github.io/bayes2stage
 BugReports: https://github.com/maxdrohde/bayes2stage/issues
 Depends:
     R (>= 4.1.0)
