@@ -7,7 +7,7 @@
 
 <!-- badges: end -->
 
-> **⚠️ Not ready for use:** bayes2stage is under active development; interfaces and results may change without notice. Do not use for production analyses yet.
+> **⚠️ Not ready for use:** bayes2stage is under active development. Do not use yet.
 
 `bayes2stage` provides tools for designing and analyzing Bayesian
 two-stage studies with longitudinal data. The package supports
