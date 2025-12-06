@@ -5,7 +5,7 @@
 \title{Set x to missing based on an ODS design}
 \usage{
 ods_design(
-  dataset,
+  data,
   sampling_type,
   cutoff_high,
   cutoff_low,
@@ -16,7 +16,7 @@ ods_design(
 )
 }
 \arguments{
-\item{dataset}{Dataset to use}
+\item{data}{Dataset to use}
 
 \item{sampling_type}{Which type of sampling? "intercept" or "slope"}
 

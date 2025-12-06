@@ -5,7 +5,7 @@
 \title{Fit a Bayesian two-stage model using NIMBLE}
 \usage{
 fit_model(
-  df,
+  data,
   main_model_covariates,
   imputation_model_covariates,
   imputation_model_distribution,
@@ -19,7 +19,7 @@ fit_model(
 )
 }
 \arguments{
-\item{df}{A data frame containing the outcome and covariates. Must include
+\item{data}{A data frame containing the outcome and covariates. Must include
 columns: y (outcome), t (time), x (exposure), and id (subject identifier).}
 
 \item{main_model_covariates}{Character vector of covariate names for the main model}

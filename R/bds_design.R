@@ -1,12 +1,12 @@
 # Given a dataset and an `lmer` formula, return a data.frame
 # of the BLUPs for each subject
-get_blups <- function(dataset,
+get_blups <- function(data,
                       fixed_effects_formula,
                       sampling_type){
 
   # Check that the required variables are in the data
-  stopifnot("t must be a variable in the data" = ("t" %in% names(dataset)))
-  stopifnot("id must be a variable in the data" = ("id" %in% names(dataset)))
+  stopifnot("t must be a variable in the data" = ("t" %in% names(data)))
+  stopifnot("id must be a variable in the data" = ("id" %in% names(data)))
 
   # Check that the model is specified correctly
   stopifnot("t must be a variable in the model" = ("t" %in% all.vars(fixed_effects_formula)))
@@ -18,7 +18,7 @@ get_blups <- function(dataset,
 
   # Fit the lme4 mixed-effect model to compute BLUPs
   mod <- lme4::lmer(formula = lmer_formula,
-                    data = dataset,
+                    data = data,
                     REML = FALSE)
 
   # Extact the BLUPs
@@ -48,7 +48,7 @@ get_blups <- function(dataset,
 
 #' Set x to missing based on an BDS design
 #'
-#' @param dataset Dataset to use
+#' @param data Dataset to use
 #' @param fixed_effects_formula Formula for the fixed-effects when fitting the model to estimate BLUPs
 #' @param sampling_type Which type of sampling? "intercept" or "slope"
 #' @param cutoff_high Which quantile to use as the cutoff for the High category
@@ -59,7 +59,7 @@ get_blups <- function(dataset,
 #' @param prop_low What proportion to sample from the Low category?
 #' @return A dataset where the x values are selected based on an BDS design
 #' @export
-bds_design <- function(dataset,
+bds_design <- function(data,
                        fixed_effects_formula,
                        sampling_type,
                        cutoff_high,
@@ -71,11 +71,11 @@ bds_design <- function(dataset,
 
   stopifnot("Choose either 'intercept' or 'slope' as `sampling_type`" = sampling_type %in% c("intercept", "slope"))
   stopifnot("Strata proportions must sum to 1" = prop_high + prop_middle + prop_low == 1)
-  stopifnot("x must be a variable in the data" = ("x" %in% names(dataset)))
+  stopifnot("x must be a variable in the data" = ("x" %in% names(data)))
   stopifnot("Number of subjects sampled must be a whole number" = is_positive_integer(sampling_N))
 
   blups <-
-    get_blups(dataset,
+    get_blups(data,
               fixed_effects_formula,
               sampling_type)
 
@@ -122,7 +122,7 @@ bds_design <- function(dataset,
                     low_ids)
 
   # If not chosen for stage 2, set x to missing
-  stage2_df <- set_missing(dataset,
+  stage2_df <- set_missing(data,
                            selected_ids)
 
   # Merge in the information on the estimated BLUPs

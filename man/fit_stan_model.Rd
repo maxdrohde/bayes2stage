@@ -8,6 +8,8 @@ fit_stan_model(
   data,
   main_model_covariates,
   imputation_model_covariates,
+  imputation_distribution = c("normal", "bernoulli", "beta_binomial",
+    "negative_binomial"),
   nchains = 4,
   iter_warmup = 1000,
   iter_sampling = 1000,
@@ -22,6 +24,11 @@ fit_stan_model(
 \item{main_model_covariates}{Character vector of covariate names for the main model}
 
 \item{imputation_model_covariates}{Character vector of covariate names for the imputation model}
+
+\item{imputation_distribution}{Distribution for the imputation model:
+"normal" for continuous x, "bernoulli" for binary x, "beta_binomial"
+for bounded count data, or "negative_binomial" for unbounded count data
+(default: "normal")}
 
 \item{nchains}{Number of MCMC chains (default: 4)}
 

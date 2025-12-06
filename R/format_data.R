@@ -1,53 +1,85 @@
 #' Format the simulated data for Stan / NIMBLE
 #'
-#' @param dataset Dataset to use
-#' @param main_vars Character vector of column names for covariates in the main model
-#' @param imputation_vars Character vector of column names for covariates in the imputation model
+#' @param data Dataset to use
+#' @param main_model_covariates Character vector of column names for covariates in the main model
+#' @param imputation_model_covariates Character vector of column names for covariates in the imputation model
+#' @param imputation_distribution Distribution for the imputation model:
+#'   "normal" for continuous x, "bernoulli" for binary x, "beta_binomial"
+#'   for bounded count data, or "negative_binomial" for unbounded count data
 #' @return A list suitable for input to MCMC software
 #' @export
-format_data_mcmc <- function(dataset,
-                             main_vars = NULL,
-                             imputation_vars = NULL)
+format_data_mcmc <- function(data,
+                             main_model_covariates = NULL,
+                             imputation_model_covariates = NULL,
+                             imputation_distribution = c("normal",
+                                                         "bernoulli",
+                                                         "beta_binomial",
+                                                         "negative_binomial"))
   {
 
-  dataset <-
-    dataset |>
+  imputation_distribution <- match.arg(imputation_distribution)
+
+  data <-
+    data |>
     dplyr::arrange(id, t)
 
   # Re-index id to 1..G
-  dataset <-
-    dataset |>
+  data <-
+    data |>
     dplyr::mutate(id_idx = as.integer(factor(id)))
 
   id_df <-
-    dataset |>
+    data |>
     dplyr::distinct(id_idx,
                     .keep_all = TRUE) |>
     dplyr::arrange(id_idx)
 
-  X <- as.matrix(dataset[, main_vars, drop = FALSE])
-  Z <- as.matrix(id_df[, imputation_vars, drop = FALSE])
+  X <- as.matrix(data[, main_model_covariates, drop = FALSE])
+  Z <- as.matrix(id_df[, imputation_model_covariates, drop = FALSE])
 
   P <- ncol(X)
   S <- ncol(Z)
 
+  # Format x_obs based on imputation_distribution
+  x_obs_raw <- id_df$x[!is.na(id_df$x)]
+  if (imputation_distribution %in% c("bernoulli",
+                                     "beta_binomial",
+                                     "negative_binomial")) {
+    x_obs <- as.integer(x_obs_raw)
+  } else {
+    x_obs <- x_obs_raw
+  }
+
   data_list <-
     list(
-      N       = nrow(dataset),
+      N       = nrow(data),
       G       = nrow(id_df),
       G_obs   = sum(!is.na(id_df$x)),
       G_mis   = sum(is.na(id_df$x)),
       P       = P,
       S       = S,
-      t       = dataset$t,
+      t       = data$t,
       X       = X,
       Z       = Z,
-      y       = dataset$y,
+      y       = data$y,
       index_obs = which(!is.na(id_df$x)),
       index_mis = which(is.na(id_df$x)),
-      x_obs     = id_df$x[!is.na(id_df$x)],
-      id        = dataset$id_idx
+      x_obs     = x_obs,
+      id        = data$id_idx
     )
+
+  # Add n_trials for beta_binomial model
+  if (imputation_distribution == "beta_binomial") {
+    data_list$n_trials <- as.integer(id_df$n_trials)
+  }
+
+  # Add max_x for negative_binomial model
+  if (imputation_distribution == "negative_binomial") {
+    # Use 3x the max observed value or 100, whichever is larger
+    # This should be large enough for marginalization
+    max_observed <- if (length(x_obs) > 0) max(x_obs) else 0
+    data_list$max_x <- as.integer(max(max_observed * 3, 100))
+  }
 
   return(data_list)
 }

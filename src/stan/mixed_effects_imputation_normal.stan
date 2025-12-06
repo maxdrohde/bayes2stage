@@ -46,21 +46,21 @@ parameters {
 
 model {
   to_vector(z_re) ~ std_normal();
-  sigma_re ~ exponential(1);
+  sigma_re ~ exponential(0.1);
   L_re ~ lkj_corr_cholesky(2);
 
   // Main model priors
-  sigma_main ~ exponential(1);
-  alpha_main ~ normal(0, 5);
-  beta ~ normal(0, 5);
-  beta_t ~ normal(0, 5);
-  beta_x ~ normal(0, 5);
-  beta_x_t_interaction ~ normal(0, 5);
+  sigma_main ~ exponential(0.1);
+  alpha_main ~ normal(0, 2);
+  beta ~ normal(0, 2);
+  beta_t ~ normal(0, 2);
+  beta_x ~ normal(0, 2);
+  beta_x_t_interaction ~ normal(0, 2);
 
   // Imputation model priors
-  sigma_imputation ~ exponential(1);
-  alpha_imputation ~ normal(0, 5);
-  gamma ~ normal(0, 5);
+  sigma_imputation ~ exponential(0.1);
+  alpha_imputation ~ normal(0, 2);
+  gamma ~ normal(0, 2);
 
   vector[G] x;
   x[index_obs] = x_obs;

@@ -210,7 +210,7 @@ build_nimble_code <- function(main_model_covariates,
 #'
 #' Fits a mixed effects model with imputation using NIMBLE for MCMC sampling.
 #'
-#' @param df A data frame containing the outcome and covariates. Must include
+#' @param data A data frame containing the outcome and covariates. Must include
 #'   columns: y (outcome), t (time), x (exposure), and id (subject identifier).
 #' @param main_model_covariates Character vector of covariate names for the main model
 #' @param imputation_model_covariates Character vector of covariate names for the imputation model
@@ -227,7 +227,7 @@ build_nimble_code <- function(main_model_covariates,
 #' @param print_code Logical; if TRUE, prints the NIMBLE model code (default: FALSE)
 #' @return A list containing MCMC samples and optionally WAIC
 #' @export
-fit_model <- function(df,
+fit_model <- function(data,
                       main_model_covariates,
                       imputation_model_covariates,
                       imputation_model_distribution,
@@ -244,22 +244,22 @@ fit_model <- function(df,
     stopifnot("Must specify x_size for binomial or beta binomial distributions" = !is.null(x_size))
   }
 
-  check_cols(df, c("y", "t", "x", "id"))
+  check_cols(data, c("y", "t", "x", "id"))
 
   # Dataframe with one row per ID
-  G_df <- dplyr::distinct(df, id, .keep_all = TRUE)
+  G_df <- dplyr::distinct(data, id, .keep_all = TRUE)
 
   constants <- list()
 
   # Scalars
-  constants[["N"]] <- nrow(df)
+  constants[["N"]] <- nrow(data)
   constants[["G"]] <- nrow(G_df)
 
   # Length N
-  constants[["y"]] <- df[["y"]]
-  constants[["t"]] <- df[["t"]]
-  constants[["id"]] <- df[["id"]]
-  constants[["id_factor"]] <- as.factor(df[["id"]])
+  constants[["y"]] <- data[["y"]]
+  constants[["t"]] <- data[["t"]]
+  constants[["id"]] <- data[["id"]]
+  constants[["id_factor"]] <- as.factor(data[["id"]])
 
   # Size for binomial and beta binomial
   if (!is.null(x_size)) {

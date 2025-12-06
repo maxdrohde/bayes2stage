@@ -58,14 +58,14 @@ mcmc_summary <- function(mcmc_output,
 #'
 #' Validates that a data frame contains all required columns.
 #'
-#' @param df A data frame to check
+#' @param data A data frame to check
 #' @param required_cols A character vector of required column names
 #' @return Invisibly returns TRUE if all columns are present; otherwise throws an error
 #' @export
-check_cols <- function(df, required_cols) {
-  missing <- setdiff(required_cols, names(df))
+check_cols <- function(data, required_cols) {
+  missing <- setdiff(required_cols, names(data))
   if (length(missing)) {
-    stop("`df` is missing required column",
+    stop("`data` is missing required column",
          if (length(missing) > 1) "s" else "", ": ",
          paste(missing, collapse = ", "), call. = FALSE)
   }

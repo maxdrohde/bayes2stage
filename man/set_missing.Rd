@@ -4,10 +4,10 @@
 \alias{set_missing}
 \title{Given selected subjects, set X to missing for those not selected}
 \usage{
-set_missing(dataset, selected_ids)
+set_missing(data, selected_ids)
 }
 \arguments{
-\item{dataset}{Input data frame}
+\item{data}{Input data frame}
 
 \item{selected_ids}{IDs for the selected subjects}
 }

@@ -1,18 +1,18 @@
 #' Plot simulated data
 #'
-#' @param dataset Dataset to use
+#' @param data Dataset to use
 #' @param subset_size How many subjects to use?
 #' @return A ggplot2 object
 #' @export
-plot_data <- function(dataset,
+plot_data <- function(data,
                       subset_size = 200){
 
-  dataset <-
-  dataset |>
-  dplyr::filter(id %in% sample(unique(dataset$id), subset_size))
+  data <-
+  data |>
+  dplyr::filter(id %in% sample(unique(data$id), subset_size))
 
 plt_t <-
-  dataset |>
+  data |>
   ggplot2::ggplot() +
   ggplot2::aes(x = t, y = y, group = id) +
   ggplot2::geom_line(linewidth = 0.1) +
@@ -21,7 +21,7 @@ plt_t <-
   ggplot2::labs(x = "Time", y = "Y")
 
 plt_xy <-
-  dataset |>
+  data |>
   ggplot2::ggplot() +
   ggplot2::aes(x = x, y = y) +
   ggplot2::geom_point(size = 0.2) +
@@ -30,7 +30,7 @@ plt_xy <-
   ggplot2::coord_equal()
 
 plt_zy <-
-  dataset |>
+  data |>
   ggplot2::ggplot() +
   ggplot2::aes(x = z, y = y) +
   ggplot2::geom_point(size = 0.2) +
@@ -39,7 +39,7 @@ plt_zy <-
   ggplot2::coord_equal()
 
 plt_zx <-
-  dataset |>
+  data |>
   dplyr::filter(t == 1) |>
   ggplot2::ggplot() +
   ggplot2::aes(x = z, y = x) +
@@ -49,7 +49,7 @@ plt_zx <-
   ggplot2::coord_equal()
 
 hist_x <-
-  dataset |>
+  data |>
   dplyr::filter(t == 1) |>
   ggplot2::ggplot() +
   ggplot2::aes(x) +
@@ -58,7 +58,7 @@ hist_x <-
   ggplot2::labs(x = "X")
 
 hist_z <-
-  dataset |>
+  data |>
   dplyr::filter(t == 1) |>
   ggplot2::ggplot() +
   ggplot2::aes(z) +

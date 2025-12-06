@@ -1,11 +1,11 @@
-get_ods <- function(dataset,
+get_ods <- function(data,
                     sampling_type){
 
   # Convert to data.table
-  dataset <- data.table::as.data.table(dataset)
+  data <- data.table::as.data.table(data)
 
   lms <-
-    dataset[,
+    data[,
             .(lm_coef = list(stats::lm(y ~ t, data = .SD)$coefficients)),
             by = id]
 
@@ -26,7 +26,7 @@ get_ods <- function(dataset,
 
 #' Set x to missing based on an ODS design
 #'
-#' @param dataset Dataset to use
+#' @param data Dataset to use
 #' @param sampling_type Which type of sampling? "intercept" or "slope"
 #' @param cutoff_high Which quantile to use as the cutoff for the High category
 #' @param cutoff_low Which quantile to use as the cutoff for the Low category
@@ -36,7 +36,7 @@ get_ods <- function(dataset,
 #' @param prop_low What proportion to sample from the Low category?
 #' @return A dataset where the x values are selected based on an ODS design
 #' @export
-ods_design <- function(dataset,
+ods_design <- function(data,
                        sampling_type,
                        cutoff_high,
                        cutoff_low,
@@ -47,10 +47,10 @@ ods_design <- function(dataset,
 
   stopifnot("Choose either 'intercept' or 'slope' as `sampling_type`" = sampling_type %in% c("intercept", "slope"))
   stopifnot("Strata proportions must sum to 1" = prop_high + prop_middle + prop_low == 1)
-  stopifnot("x must be a variable in the data" = ("x" %in% names(dataset)))
+  stopifnot("x must be a variable in the data" = ("x" %in% names(data)))
   stopifnot("Number of subjects sampled must be a whole number" = is.wholenumber(sampling_N))
 
-  ods <- get_ods(dataset, sampling_type)
+  ods <- get_ods(data, sampling_type)
 
   # Categorize  into high, middle, and low strata based on quantiles
   ods$category <-
@@ -93,7 +93,7 @@ ods_design <- function(dataset,
                     low_ids)
 
   # If not chosen for stage 2, set x to missing
-  stage2_df <- set_missing(dataset,
+  stage2_df <- set_missing(data,
                            selected_ids)
 
   # Merge in the information on the estimated intercepts / slopes

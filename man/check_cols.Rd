@@ -4,10 +4,10 @@
 \alias{check_cols}
 \title{Check for required columns in a data frame}
 \usage{
-check_cols(df, required_cols)
+check_cols(data, required_cols)
 }
 \arguments{
-\item{df}{A data frame to check}
+\item{data}{A data frame to check}
 
 \item{required_cols}{A character vector of required column names}
 }

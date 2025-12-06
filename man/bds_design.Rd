@@ -5,7 +5,7 @@
 \title{Set x to missing based on an BDS design}
 \usage{
 bds_design(
-  dataset,
+  data,
   fixed_effects_formula,
   sampling_type,
   cutoff_high,
@@ -17,7 +17,7 @@ bds_design(
 )
 }
 \arguments{
-\item{dataset}{Dataset to use}
+\item{data}{Dataset to use}
 
 \item{fixed_effects_formula}{Formula for the fixed-effects when fitting the model to estimate BLUPs}
 

@@ -4,10 +4,10 @@
 \alias{plot_data}
 \title{Plot simulated data}
 \usage{
-plot_data(dataset, subset_size = 200)
+plot_data(data, subset_size = 200)
 }
 \arguments{
-\item{dataset}{Dataset to use}
+\item{data}{Dataset to use}
 
 \item{subset_size}{How many subjects to use?}
 }
