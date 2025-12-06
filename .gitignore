@@ -4,3 +4,16 @@
 .httr-oauth
 .DS_Store
 .quarto
+..Rcheck
+*.Rcheck
+
+# Compiled Stan binaries (files without extension in src/stan/)
+src/stan/mixed_effects_imputation_bernoulli
+src/stan/mixed_effects_imputation_beta_binomial
+src/stan/mixed_effects_imputation_negative_binomial
+src/stan/mixed_effects_imputation_normal
+src/stan/mixed_effects_imputation_negative_binomial_optimized
+
+# Compiled symbols
+src/symbols.rds
+inst/.quarto
