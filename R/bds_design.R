@@ -53,7 +53,7 @@ get_blups <- function(data,
 #' @param sampling_type Which type of sampling? "intercept" or "slope"
 #' @param cutoff_high Which quantile to use as the cutoff for the High category
 #' @param cutoff_low Which quantile to use as the cutoff for the Low category
-#' @param sampling_N How many subjects should be sampled?
+#' @param n_sampled How many subjects should be sampled?
 #' @param prop_high What proportion to sample from the High category?
 #' @param prop_middle What proportion to sample from the Middle category?
 #' @param prop_low What proportion to sample from the Low category?
@@ -64,7 +64,7 @@ bds_design <- function(data,
                        sampling_type,
                        cutoff_high,
                        cutoff_low,
-                       sampling_N,
+                       n_sampled,
                        prop_high,
                        prop_middle,
                        prop_low){
@@ -72,7 +72,7 @@ bds_design <- function(data,
   stopifnot("Choose either 'intercept' or 'slope' as `sampling_type`" = sampling_type %in% c("intercept", "slope"))
   stopifnot("Strata proportions must sum to 1" = prop_high + prop_middle + prop_low == 1)
   stopifnot("x must be a variable in the data" = ("x" %in% names(data)))
-  stopifnot("Number of subjects sampled must be a whole number" = is_positive_integer(sampling_N))
+  stopifnot("Number of subjects sampled must be a whole number" = is_positive_integer(n_sampled))
 
   blups <-
     get_blups(data,
@@ -89,9 +89,9 @@ bds_design <- function(data,
         labels = c("Low", "Middle", "High"))
 
   # Compute sampling sizes for each strata
-  size_high <- sampling_N * prop_high
-  size_middle <- sampling_N * prop_middle
-  size_low <- sampling_N * prop_low
+  size_high <- n_sampled * prop_high
+  size_middle <- n_sampled * prop_middle
+  size_low <- n_sampled * prop_low
 
   # Check sizes
   sizes <- c(size_high, size_middle, size_low)

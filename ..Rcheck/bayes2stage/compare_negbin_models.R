@@ -62,7 +62,7 @@ df <- generate_data(
 
 # Apply SRS sampling
 n_obs <- round(N_SUBJECTS * SAMPLING_FRACTION)
-df_sampled <- srs_design(df, n_sampled = n_obs)
+df_sampled <- srs_design(df, sampling_N = n_obs)
 
 cat("Data generated:\n")
 cat("  Subjects:", N_SUBJECTS, "\n")

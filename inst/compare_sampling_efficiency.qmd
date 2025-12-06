@@ -95,7 +95,7 @@ mod1 <- cmdstanr::cmdstan_model("~/r_package_development/bayes2stage/inst/stan_m
 
 df <- bayes2stage::generate_data(N = 300,
                                  x_dist = "normal") |>
-  bayes2stage::srs_design(N = 100)
+  bayes2stage::srs_design(n_sampled = 100)
 
 data_list <- format_data_mcmc(df,
                               main_vars = c("z"),

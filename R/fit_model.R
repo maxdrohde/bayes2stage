@@ -218,7 +218,7 @@ build_nimble_code <- function(main_model_covariates,
 #'   One of: "normal", "binomial", "beta_binomial", "poisson", "negative_binomial"
 #' @param correlated_random_effects Logical; if TRUE, random intercepts and slopes
 #'   are correlated (default: TRUE)
-#' @param nchains Number of MCMC chains (default: 4)
+#' @param n_chains Number of MCMC chains (default: 4)
 #' @param niter Number of MCMC iterations per chain (default: 10000)
 #' @param nburnin Number of burn-in iterations to discard (default: 2000)
 #' @param x_size Integer vector of trial sizes; required for binomial or beta_binomial
@@ -232,7 +232,7 @@ fit_model <- function(data,
                       imputation_model_covariates,
                       imputation_model_distribution,
                       correlated_random_effects = TRUE,
-                      nchains = 4,
+                      n_chains = 4,
                       niter = 10000,
                       nburnin = 2000,
                       x_size = NULL,
@@ -351,7 +351,7 @@ fit_model <- function(data,
                          project = Cmod)
 
   samples <- runMCMC(Cmcmc,
-                     nchains = nchains,
+                     nchains = n_chains,
                      niter = niter,
                      nburnin = nburnin,
                      WAIC = use_waic,

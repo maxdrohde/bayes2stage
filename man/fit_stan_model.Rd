@@ -10,7 +10,7 @@ fit_stan_model(
   imputation_model_covariates,
   imputation_distribution = c("normal", "bernoulli", "beta_binomial",
     "negative_binomial"),
-  nchains = 4,
+  n_chains = 4,
   iter_warmup = 1000,
   iter_sampling = 1000,
   adapt_delta = 0.8,
@@ -30,7 +30,7 @@ fit_stan_model(
 for bounded count data, or "negative_binomial" for unbounded count data
 (default: "normal")}
 
-\item{nchains}{Number of MCMC chains (default: 4)}
+\item{n_chains}{Number of MCMC chains (default: 4)}
 
 \item{iter_warmup}{Number of warmup iterations per chain (default: 1000)}
 

@@ -62,7 +62,7 @@ cat("Mean count:", round(mean(df_negbin$x[!duplicated(df_negbin$id)]), 2), "\n\n
 
 # Apply SRS sampling
 sampling_n <- round(N_SUBJECTS * SAMPLING_FRACTION)
-df_sampled <- srs_design(df_negbin, sampling_N = sampling_n)
+df_sampled <- srs_design(df_negbin, n_sampled = sampling_n)
 
 cat("Subjects with observed x:", sampling_n, "\n")
 cat("Subjects with missing x:", N_SUBJECTS - sampling_n, "\n\n")
@@ -76,7 +76,7 @@ fit <- fit_stan_model(
   main_model_covariates = c("z"),
   imputation_model_covariates = c("z"),
   imputation_distribution = "negative_binomial",
-  nchains = N_CHAINS,
+  n_chains = N_CHAINS,
   iter_warmup = ITER_WARMUP,
   iter_sampling = ITER_SAMPLING,
   seed = SEED,

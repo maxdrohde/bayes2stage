@@ -9,7 +9,7 @@
 #'   "normal" for continuous x, "bernoulli" for binary x, "beta_binomial"
 #'   for bounded count data, or "negative_binomial" for unbounded count data
 #'   (default: "normal")
-#' @param nchains Number of MCMC chains (default: 4)
+#' @param n_chains Number of MCMC chains (default: 4)
 #' @param iter_warmup Number of warmup iterations per chain (default: 1000)
 #' @param iter_sampling Number of sampling iterations per chain (default: 1000)
 #' @param adapt_delta Target acceptance rate for HMC (default: 0.8)
@@ -24,7 +24,7 @@ fit_stan_model <- function(data,
                                                        "bernoulli",
                                                        "beta_binomial",
                                                        "negative_binomial"),
-                           nchains = 4,
+                           n_chains = 4,
                            iter_warmup = 1000,
                            iter_sampling = 1000,
                            adapt_delta = 0.8,
@@ -48,7 +48,7 @@ fit_stan_model <- function(data,
   fit <- mod$sample(
     data = data_list,
     seed = seed,
-    chains = nchains,
+    chains = n_chains,
     parallel_chains = parallel_chains,
     iter_warmup = iter_warmup,
     iter_sampling = iter_sampling,

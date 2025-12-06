@@ -6,7 +6,6 @@
     GNU Fortran (GCC) 12.2.0
 * running under: macOS Sequoia 15.7.2
 * using session charset: UTF-8
-* using options ‘--no-manual --no-build-vignettes’
 * checking for file ‘./DESCRIPTION’ ... OK
 * this is package ‘bayes2stage’ version ‘0.0.0.9000’
 * package encoding: UTF-8
@@ -19,13 +18,21 @@ Adding so many packages to the search path is excessive and importing
 selectively is preferable.
 * checking if this is a source package ... OK
 * checking if there is a namespace ... OK
-* checking for executable files ... OK
+* checking for executable files ... WARNING
+Found the following executable files:
+  .git/objects/17/0a2ffc235db114d1566e12c0123877d439d433
+  src/stan/mixed_effects_imputation_negative_binomial
+  src/stan/mixed_effects_imputation_negative_binomial_optimized
+Source packages should not contain undeclared executable files.
+See section ‘Package structure’ in the ‘Writing R Extensions’ manual.
 * checking for hidden files and directories ... NOTE
 Found the following hidden files and directories:
   .DS_Store
+  .Rhistory
   .gitignore
   inst/.DS_Store
   inst/.gitignore
+  src/.DS_Store
   ..Rcheck
   .Rproj.user
   .git
@@ -40,7 +47,6 @@ Found the following non-portable file paths:
   bayes2stage/.Rproj.user/12C15C58/ctx/ctx-37565/plots_dir/b8f16da3-89bd-4d6e-8700-c12371966270.snapshot
   bayes2stage/.Rproj.user/12C15C58/ctx/ctx-37565/plots_dir/f316fda2-d400-4525-aee1-fae29d75f35f.snapshot
   bayes2stage/.Rproj.user/12C15C58/ctx/ctx-43647/plots_dir/189b8fc3-2e38-4ad6-9124-fb04650e9f1a.snapshot
-  bayes2stage/.Rproj.user/shared/notebooks/6FAB1619-compare_sampling_efficiency/1/12C15C58b99d1ba2/chunks.json
   bayes2stage/.Rproj.user/shared/notebooks/6FAB1619-compare_sampling_efficiency/1/s/c028t8fowfcqv/00000f.csv
   bayes2stage/.Rproj.user/shared/notebooks/6FAB1619-compare_sampling_efficiency/1/s/c028t8fowfcqv/000010.html
   bayes2stage/.Rproj.user/shared/notebooks/6FAB1619-compare_sampling_efficiency/1/s/c028t8fowfcqv/000010.metadata
@@ -111,10 +117,10 @@ See section ‘Package structure’ in the ‘Writing R Extensions’ manual.
 * checking for sufficient/correct file permissions ... OK
 * checking whether package ‘bayes2stage’ can be installed ... OK
 * checking installed package size ... NOTE
-  installed size is 13.5Mb
+  installed size is 25.3Mb
   sub-directories of 1Mb or more:
     .quarto                             2.9Mb
-    bin                                 2.9Mb
+    bin                                14.6Mb
     compare_sampling_efficiency_files   7.1Mb
 * checking package directory ... OK
 * checking DESCRIPTION meta-information ... NOTE
@@ -158,5 +164,70 @@ Most likely, these were included erroneously.
 * checking for unstated dependencies in ‘tests’ ... OK
 * checking tests ... OK
   Running ‘testthat.R’
+* checking PDF version of manual ... WARNING
+LaTeX errors when creating PDF version.
+This typically indicates Rd problems.
+LaTeX errors found:
+! LaTeX Error: Unicode character β (U+03B2)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+! LaTeX Error: Unicode character ₀ (U+2080)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+! LaTeX Error: Unicode character β (U+03B2)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+! LaTeX Error: Unicode character β (U+03B2)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+! LaTeX Error: Unicode character β (U+03B2)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+! LaTeX Error: Unicode character β (U+03B2)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+! LaTeX Error: Unicode character σ (U+03C3)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+! LaTeX Error: Unicode character σ (U+03C3)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+! LaTeX Error: Unicode character ₀ (U+2080)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+! LaTeX Error: Unicode character σ (U+03C3)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+! LaTeX Error: Unicode character ₁ (U+2081)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+! LaTeX Error: Unicode character ρ (U+03C1)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+* checking PDF version of manual without index ... ERROR
 * DONE
-Status: 1 WARNING, 5 NOTEs
+Status: 1 ERROR, 3 WARNINGs, 5 NOTEs

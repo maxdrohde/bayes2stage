@@ -10,7 +10,7 @@ fit_model(
   imputation_model_covariates,
   imputation_model_distribution,
   correlated_random_effects = TRUE,
-  nchains = 4,
+  n_chains = 4,
   niter = 10000,
   nburnin = 2000,
   x_size = NULL,
@@ -32,7 +32,7 @@ One of: "normal", "binomial", "beta_binomial", "poisson", "negative_binomial"}
 \item{correlated_random_effects}{Logical; if TRUE, random intercepts and slopes
 are correlated (default: TRUE)}
 
-\item{nchains}{Number of MCMC chains (default: 4)}
+\item{n_chains}{Number of MCMC chains (default: 4)}
 
 \item{niter}{Number of MCMC iterations per chain (default: 10000)}
 

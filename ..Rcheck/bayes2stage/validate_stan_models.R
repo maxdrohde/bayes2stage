@@ -112,7 +112,7 @@ cat("Total observations:", nrow(df_normal), "\n")
 
 # Apply SRS sampling to create missingness
 sampling_n <- round(N_SUBJECTS * SAMPLING_FRACTION)
-df_normal_sampled <- srs_design(df_normal, n_sampled = sampling_n)
+df_normal_sampled <- srs_design(df_normal, sampling_N = sampling_n)
 
 cat("Subjects with observed x:", sampling_n, "\n")
 cat("Subjects with missing x:", N_SUBJECTS - sampling_n, "\n")
@@ -126,7 +126,7 @@ fit_normal <- fit_stan_model(
   main_model_covariates = c("z"),
   imputation_model_covariates = c("z"),
   imputation_distribution = "normal",
-  n_chains = N_CHAINS,
+  nchains = N_CHAINS,
   iter_warmup = ITER_WARMUP,
   iter_sampling = ITER_SAMPLING,
   seed = SEED,
@@ -210,7 +210,7 @@ cat("Total observations:", nrow(df_bernoulli), "\n")
 cat("Proportion x=1:", mean(df_bernoulli$x[!duplicated(df_bernoulli$id)]), "\n")
 
 # Apply SRS sampling to create missingness
-df_bernoulli_sampled <- srs_design(df_bernoulli, n_sampled = sampling_n)
+df_bernoulli_sampled <- srs_design(df_bernoulli, sampling_N = sampling_n)
 
 cat("Subjects with observed x:", sampling_n, "\n")
 cat("Subjects with missing x:", N_SUBJECTS - sampling_n, "\n")
@@ -224,7 +224,7 @@ fit_bernoulli <- fit_stan_model(
   main_model_covariates = c("z"),
   imputation_model_covariates = c("z"),
   imputation_distribution = "bernoulli",
-  n_chains = N_CHAINS,
+  nchains = N_CHAINS,
   iter_warmup = ITER_WARMUP,
   iter_sampling = ITER_SAMPLING,
   seed = SEED,

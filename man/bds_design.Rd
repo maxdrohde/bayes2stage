@@ -10,7 +10,7 @@ bds_design(
   sampling_type,
   cutoff_high,
   cutoff_low,
-  sampling_N,
+  n_sampled,
   prop_high,
   prop_middle,
   prop_low
@@ -27,7 +27,7 @@ bds_design(
 
 \item{cutoff_low}{Which quantile to use as the cutoff for the Low category}
 
-\item{sampling_N}{How many subjects should be sampled?}
+\item{n_sampled}{How many subjects should be sampled?}
 
 \item{prop_high}{What proportion to sample from the High category?}
 

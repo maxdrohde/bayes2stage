@@ -1,9 +1,9 @@
 test_that("stage2 sampling", {
 
   # Data parameters
-  N_SUBJECTS <- 200L
+  n_subjects <- 200L
   M <- 5L
-  sampling_N <- as.integer(0.2 * N_SUBJECTS)
+  n_sampled <- as.integer(0.2 * n_subjects)
 
   # Sampling parameters
   sampling_type <- "intercept"
@@ -15,15 +15,15 @@ test_that("stage2 sampling", {
 
 
   df <- generate_data(x_dist = "normal",
-                      N = N_SUBJECTS)
+                      N = n_subjects)
 
-  srs_df <- bayes2stage::srs_design(df, sampling_N)
+  srs_df <- bayes2stage::srs_design(df, n_sampled = n_sampled)
 
   ods_df <- bayes2stage::ods_design(df,
                                     sampling_type = sampling_type,
                                     cutoff_high = cutoff_high,
                                     cutoff_low = cutoff_low,
-                                    sampling_N = sampling_N,
+                                    n_sampled = n_sampled,
                                     prop_high = prop_high,
                                     prop_middle = prop_middle,
                                     prop_low = prop_low)
@@ -33,7 +33,7 @@ test_that("stage2 sampling", {
                                     sampling_type = sampling_type,
                                     cutoff_high = cutoff_high,
                                     cutoff_low = cutoff_low,
-                                    sampling_N = sampling_N,
+                                    n_sampled = n_sampled,
                                     prop_high = prop_high,
                                     prop_middle = prop_middle,
                                     prop_low = prop_low)

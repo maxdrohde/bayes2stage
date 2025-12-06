@@ -4,12 +4,12 @@
 \alias{srs_design}
 \title{Set x to missing based on an SRS design}
 \usage{
-srs_design(data, sampling_N)
+srs_design(data, n_sampled)
 }
 \arguments{
 \item{data}{Dataset to use}
 
-\item{sampling_N}{How many subjects to sample?}
+\item{n_sampled}{How many subjects to sample?}
 }
 \value{
 A dataset where the x values are selected based on an SRS design

@@ -38,7 +38,7 @@ df <- bayes2stage::generate_data(
   N = 300,
   x_dist = "normal"
 ) |>
-  bayes2stage::srs_design(N = 100)
+  bayes2stage::srs_design(n_sampled = 100)
 
 draws <- bayes2stage::fit_stan_model(df,
                                      main_model_covariates = c("z"),

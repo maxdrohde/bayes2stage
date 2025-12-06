@@ -1,48 +1,46 @@
-# Validation script for beta-binomial imputation model
-# Tests parameter recovery with count data
+# Validation script for negative-binomial imputation model
+# Tests parameter recovery with unbounded count data
 
 library(bayes2stage)
 library(dplyr)
 
 # Configuration
-N_SUBJECTS <- 1000
+N_SUBJECTS <- 300
 N_TIMEPOINTS <- 5
-N_TRIALS <- 5  # Number of trials for each subject's binomial count
 SAMPLING_FRACTION <- 0.6
 N_CHAINS <- 4
-ITER_WARMUP <- 5000
-ITER_SAMPLING <- 5000
-SEED <- 777
+ITER_WARMUP <- 2000
+ITER_SAMPLING <- 2000
+SEED <- 67890
 
 # True parameter values
 TRUE_PARAMS <- list(
   alpha_main = 2.0,
-  beta_x = 0.5,  # Effect per unit increase in count
+  beta_x = 0.3,  # Effect per unit increase in count
   beta_z = 0.8,
   beta_t = 1.2,
-  beta_t_x_interaction = 0.2,
+  beta_t_x_interaction = 0.15,
   error_sd = 3.0,
   rand_intercept_sd = 2.5,
   rand_slope_sd = 0.6,
   rand_eff_corr = 0.25,
-  gamma0 = -0.3,  # Intercept on logit scale
-  gamma1 = 1.0,   # Effect of z on logit scale
-  phi = 5.0       # Dispersion parameter
+  gamma0 = 1.0,   # Intercept on log scale (exp(1) = 2.7 mean)
+  gamma1 = 0.5,   # Effect of z on log scale
+  phi = 3.0       # Dispersion parameter
 )
 
 cat("\n")
 cat(strrep("=", 80), "\n")
-cat("VALIDATING BETA-BINOMIAL IMPUTATION MODEL\n")
+cat("VALIDATING NEGATIVE-BINOMIAL IMPUTATION MODEL\n")
 cat(strrep("=", 80), "\n\n")
 
 set.seed(SEED)
 
-# Generate data with beta-binomial count x
-df_betabin <- generate_data(
+# Generate data with negative-binomial count x
+df_negbin <- generate_data(
   N = N_SUBJECTS,
   M = N_TIMEPOINTS,
-  x_dist = "beta_binomial",
-  x_size = N_TRIALS,
+  x_dist = "negative_binomial",
   x_disp_param = TRUE_PARAMS$phi,
   alpha_main = TRUE_PARAMS$alpha_main,
   beta_x = TRUE_PARAMS$beta_x,
@@ -57,33 +55,28 @@ df_betabin <- generate_data(
   gamma1 = TRUE_PARAMS$gamma1
 )
 
-# Add n_trials column (constant for all subjects)
-df_betabin <- df_betabin |>
-  group_by(id) |>
-  mutate(n_trials = N_TRIALS) |>
-  ungroup()
-
 cat("Data generated:", N_SUBJECTS, "subjects x", N_TIMEPOINTS, "timepoints\n")
-cat("Count range: 0 -", N_TRIALS, "\n")
-cat("Mean count:", round(mean(df_betabin$x[!duplicated(df_betabin$id)]), 2), "\n\n")
+cat("Count range:", min(df_negbin$x), "-",
+    max(df_negbin$x[!duplicated(df_negbin$id)]), "\n")
+cat("Mean count:", round(mean(df_negbin$x[!duplicated(df_negbin$id)]), 2), "\n\n")
 
 # Apply SRS sampling
 sampling_n <- round(N_SUBJECTS * SAMPLING_FRACTION)
-df_sampled <- srs_design(df_betabin, n_sampled = sampling_n)
+df_sampled <- srs_design(df_negbin, sampling_N = sampling_n)
 
 cat("Subjects with observed x:", sampling_n, "\n")
 cat("Subjects with missing x:", N_SUBJECTS - sampling_n, "\n\n")
 
 # Fit the model
-cat("Fitting beta-binomial imputation model...\n")
+cat("Fitting negative-binomial imputation model...\n")
 cat("Chains:", N_CHAINS, "| Warmup:", ITER_WARMUP, "| Sampling:", ITER_SAMPLING, "\n\n")
 
 fit <- fit_stan_model(
   data = df_sampled,
   main_model_covariates = c("z"),
   imputation_model_covariates = c("z"),
-  imputation_distribution = "beta_binomial",
-  n_chains = N_CHAINS,
+  imputation_distribution = "negative_binomial",
+  nchains = N_CHAINS,
   iter_warmup = ITER_WARMUP,
   iter_sampling = ITER_SAMPLING,
   seed = SEED,

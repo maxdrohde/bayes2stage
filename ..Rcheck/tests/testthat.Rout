@@ -87,7 +87,7 @@ Compiling
 running chain 1...
 |-------------|-------------|-------------|-------------|
 |-------------------------------------------------------|
-  [Warning] There are 39 individual pWAIC values that are greater than 0.4. This may indicate that the WAIC estimate is unstable (Vehtari et al., 2017), at least in cases without grouping of data nodes or multivariate data nodes.
+  [Warning] There are 53 individual pWAIC values that are greater than 0.4. This may indicate that the WAIC estimate is unstable (Vehtari et al., 2017), at least in cases without grouping of data nodes or multivariate data nodes.
 CODE:----------------------------------------------------------------{
     "# LINPRED"
     "  ## nimbleMacros::FORLOOP"
@@ -356,7 +356,8 @@ CODE:----------------------------------------------------------------{
 [210] conjugate_dnorm_dnorm_additive sampler: gamma_Intercept
 [211] conjugate_dnorm_dnorm_linear sampler: gamma_z
 [212] RW sampler: sigma_imputation
----------------------------------------------------------------------[ FAIL 0 | WARN 0 | SKIP 3 | PASS 1 ]
+---------------------------------------------------------------------boundary (singular) fit: see help('isSingular')
+[ FAIL 0 | WARN 0 | SKIP 3 | PASS 1 ]
 
 ══ Skipped tests (3) ═══════════════════════════════════════════════════════════
 • empty test (3): 'test-data_generation.R:1:1', 'test-model-fitting.R:1:1',
@@ -366,4 +367,4 @@ CODE:----------------------------------------------------------------{
 > 
 > proc.time()
    user  system elapsed 
- 15.019   0.736  16.098 
+ 20.631   1.164  23.009 

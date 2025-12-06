@@ -15,7 +15,7 @@ bds_df <-
     sampling_type = "intercept",
     cutoff_high = 0.9,
     cutoff_low = 0.1,
-    sampling_N = 50,
+    n_sampled = 50,
     prop_high = 0.40,
     prop_middle = 0.20,
     prop_low = 0.40)
@@ -26,7 +26,7 @@ ods_df <-
     sampling_type = "intercept",
     cutoff_high = 0.9,
     cutoff_low = 0.1,
-    sampling_N = 50,
+    n_sampled = 50,
     prop_high = 0.40,
     prop_middle = 0.20,
     prop_low = 0.40)

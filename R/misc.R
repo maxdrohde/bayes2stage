@@ -1,7 +1,7 @@
-is.wholenumber <- function(x, tol = .Machine$double.eps^0.5)  abs(x - round(x)) < tol
+is_whole_number <- function(x, tol = .Machine$double.eps^0.5)  abs(x - round(x)) < tol
 
 is_positive_integer <- function(x) {
-  is.numeric(x) & is.finite(x) & x > 0 & is.wholenumber(x)
+  is.numeric(x) & is.finite(x) & x > 0 & is_whole_number(x)
 }
 
 #' Create a forest plot of MCMC output

@@ -71,7 +71,7 @@ stage2_data <- ods_design(
   sampling_type = "slope",
   cutoff_high = 0.75,
   cutoff_low = 0.25,
-  sampling_N = 200,
+  n_sampled = 200,
   prop_high = 0.4,
   prop_middle = 0.2,
   prop_low = 0.4
@@ -84,7 +84,7 @@ fit <- fit_stan_model(
   main_model_covariates = c("x", "z", "t"),
   imputation_model_covariates = c("z"),
   imputation_distribution = "normal",
-  nchains = 4,
+  n_chains = 4,
   iter_warmup = 1000,
   iter_sampling = 1000
 )

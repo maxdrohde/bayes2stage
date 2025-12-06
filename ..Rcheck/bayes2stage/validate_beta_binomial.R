@@ -69,7 +69,7 @@ cat("Mean count:", round(mean(df_betabin$x[!duplicated(df_betabin$id)]), 2), "\n
 
 # Apply SRS sampling
 sampling_n <- round(N_SUBJECTS * SAMPLING_FRACTION)
-df_sampled <- srs_design(df_betabin, n_sampled = sampling_n)
+df_sampled <- srs_design(df_betabin, sampling_N = sampling_n)
 
 cat("Subjects with observed x:", sampling_n, "\n")
 cat("Subjects with missing x:", N_SUBJECTS - sampling_n, "\n\n")
@@ -83,7 +83,7 @@ fit <- fit_stan_model(
   main_model_covariates = c("z"),
   imputation_model_covariates = c("z"),
   imputation_distribution = "beta_binomial",
-  n_chains = N_CHAINS,
+  nchains = N_CHAINS,
   iter_warmup = ITER_WARMUP,
   iter_sampling = ITER_SAMPLING,
   seed = SEED,
