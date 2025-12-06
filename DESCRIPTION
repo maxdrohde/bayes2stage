@@ -17,7 +17,6 @@ BugReports: https://github.com/maxdrohde/bayes2stage/issues
 Depends:
     R (>= 4.1.0)
 Imports:
-    cmdstanr,
     data.table,
     dplyr,
     extraDistr,
@@ -37,7 +36,8 @@ Imports:
     rlang,
     stats,
     tibble
-Additional_repositories: https://stan-dev.r-universe.dev
+Remotes:
+    stan-dev/cmdstanr
 Suggests:
     knitr,
     pkgdown,
