@@ -7,8 +7,8 @@
 
 <!-- badges: end -->
 
-> **Warning:** This package is under active development. Interfaces may
-> change without notice.
+> **Warning:** This package still being developed. **Do not use in the
+> current state.**
 
 `bayes2stage` provides tools for designing and analyzing two-stage
 studies with longitudinal data. In these designs, an expensive covariate

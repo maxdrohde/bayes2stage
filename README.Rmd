@@ -19,7 +19,7 @@ knitr::opts_chunk$set(
 <!-- badges: start -->
 <!-- badges: end -->
 
-> **Warning:** This package is under active development. Interfaces may change without notice.
+> **Warning:** This package still being developed. **Do not use in the current state.**
 
 `bayes2stage` provides tools for designing and analyzing two-stage studies with longitudinal data. In these designs, an expensive covariate is measured only on a strategically selected subset of subjects, then Bayesian imputation recovers information from subjects with missing covariate data.
 
