@@ -1,0 +1,162 @@
+# bayes2stage
+
+> **Warning:** This package still being developed. **Do not use in the
+> current state.**
+
+`bayes2stage` provides tools for designing and analyzing two-stage
+studies with longitudinal data. In these designs, an expensive covariate
+is measured only on a strategically selected subset of subjects, then
+Bayesian imputation recovers information from subjects with missing
+covariate data.
+
+## Overview
+
+Two-stage designs are useful when:
+
+- A key covariate is expensive or invasive to measure (e.g., biomarkers,
+  genetic tests)
+- Longitudinal outcome data is available for all subjects
+- You want to maximize statistical efficiency while minimizing
+  measurement costs
+
+The package supports three sampling strategies for selecting which
+subjects to measure:
+
+| Design                     | Function                                                                          | Selection Based On       |
+|----------------------------|-----------------------------------------------------------------------------------|--------------------------|
+| Simple Random Sampling     | [`srs_design()`](https://maxdrohde.github.io/bayes2stage/reference/srs_design.md) | Random selection         |
+| Outcome-Dependent Sampling | [`ods_design()`](https://maxdrohde.github.io/bayes2stage/reference/ods_design.md) | OLS intercepts or slopes |
+| BLUP-Dependent Sampling    | [`bds_design()`](https://maxdrohde.github.io/bayes2stage/reference/bds_design.md) | Mixed model BLUPs        |
+
+ODS and BDS designs oversample from the tails of the trajectory
+distribution, improving efficiency for detecting covariate effects.
+
+## Installation
+
+``` r
+# install.packages("devtools")
+devtools::install_github("maxdrohde/bayes2stage")
+```
+
+## Workflow
+
+### 1. Generate or load longitudinal data
+
+``` r
+library(bayes2stage)
+
+set.seed(123)
+data <- generate_data(
+  N = 1000,                    # subjects
+  M = 5,                       # time points per subject
+  x_dist = "normal",           # covariate distribution
+  beta_x = 1,                  # effect of x on outcome
+  beta_t_x_interaction = 0.3,  # x modifies the slope
+  rand_intercept_sd = 3,
+  rand_slope_sd = 1
+)
+```
+
+The outcome model is:
+$$y_{ij} = \alpha + \beta_{x}x_{i} + \beta_{z}z_{i} + \left( \beta_{t} + b_{1i} \right)t_{ij} + \beta_{tx}x_{i}t_{ij} + b_{0i} + \epsilon_{ij}$$
+
+where $b_{0i}$ and $b_{1i}$ are correlated random intercepts and slopes.
+
+### 2. Apply a two-stage sampling design
+
+Select 200 subjects for stage 2, oversampling from tails:
+
+``` r
+stage2_data <- ods_design(
+  data,
+  sampling_type = "slope",     # sample based on estimated slopes
+  cutoff_low = 0.25,
+  cutoff_high = 0.75,
+  n_sampled = 200,
+  prop_low = 0.4,              # 40% from lowest quartile
+  prop_middle = 0.2,           # 20% from middle 50%
+  prop_high = 0.4              # 40% from highest quartile
+)
+```
+
+Subjects not selected have their `x` values set to `NA`.
+
+### 3. Fit Bayesian model with imputation
+
+``` r
+fit <- fit_stan_model(
+  data = stage2_data,
+  main_model_covariates = c("x", "z", "t"),
+  imputation_model_covariates = c("z"),
+  imputation_distribution = "normal",
+  n_chains = 4,
+  iter_warmup = 1000,
+  iter_sampling = 1000
+)
+
+# View results
+fit$summary(variables = c("beta_x", "beta_z", "beta_t"))
+```
+
+The Stan model jointly:
+
+1.  Models the longitudinal outcome with random effects
+2.  Imputes missing covariate values using observed covariates
+
+## Supported Covariate Distributions
+
+The package handles different covariate types through specialized Stan
+models:
+
+| Distribution        | Use Case              | Stan Model                                        |
+|---------------------|-----------------------|---------------------------------------------------|
+| `normal`            | Continuous covariates | `mixed_effects_imputation_normal.stan`            |
+| `bernoulli`         | Binary covariates     | `mixed_effects_imputation_bernoulli.stan`         |
+| `negative_binomial` | Unbounded counts      | `mixed_effects_imputation_negative_binomial.stan` |
+| `beta_binomial`     | Bounded counts        | `mixed_effects_imputation_beta_binomial.stan`     |
+
+## Alternative Estimation Methods
+
+### Ascertainment-Corrected Maximum Likelihood (ACML)
+
+For frequentist analysis of ODS designs:
+
+``` r
+acml_results <- fit_acml_ods(
+  ods_df = stage2_data,
+  cutoff_low = 0.25,
+  cutoff_high = 0.75
+)
+```
+
+### NIMBLE-based Bayesian fitting
+
+Legacy support via
+[`fit_model()`](https://maxdrohde.github.io/bayes2stage/reference/fit_model.md)
+using the NIMBLE probabilistic programming framework.
+
+## Key Functions
+
+| Function                                                                                  | Purpose                                        |
+|-------------------------------------------------------------------------------------------|------------------------------------------------|
+| [`generate_data()`](https://maxdrohde.github.io/bayes2stage/reference/generate_data.md)   | Simulate longitudinal data with random effects |
+| [`srs_design()`](https://maxdrohde.github.io/bayes2stage/reference/srs_design.md)         | Simple random sampling                         |
+| [`ods_design()`](https://maxdrohde.github.io/bayes2stage/reference/ods_design.md)         | Outcome-dependent sampling                     |
+| [`bds_design()`](https://maxdrohde.github.io/bayes2stage/reference/bds_design.md)         | BLUP-dependent sampling                        |
+| [`fit_stan_model()`](https://maxdrohde.github.io/bayes2stage/reference/fit_stan_model.md) | Bayesian mixed model with imputation           |
+| [`fit_acml_ods()`](https://maxdrohde.github.io/bayes2stage/reference/fit_acml_ods.md)     | ACML estimation for ODS                        |
+| [`mcmc_summary()`](https://maxdrohde.github.io/bayes2stage/reference/mcmc_summary.md)     | Summarize MCMC output                          |
+| [`mcmc_trace()`](https://maxdrohde.github.io/bayes2stage/reference/mcmc_trace.md)         | Trace plots                                    |
+| [`mcmc_forest()`](https://maxdrohde.github.io/bayes2stage/reference/mcmc_forest.md)       | Forest plots                                   |
+
+## Citation
+
+``` R
+Rohde, M. (2024). bayes2stage: Bayesian Analysis of Two-Stage Designs.
+R package version 0.0.0.9000. https://github.com/maxdrohde/bayes2stage
+```
+
+## Links
+
+- [GitHub Repository](https://github.com/maxdrohde/bayes2stage)
+- [Bug Reports](https://github.com/maxdrohde/bayes2stage/issues)

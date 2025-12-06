@@ -1,0 +1,145 @@
+# Getting Started with bayes2stage
+
+## Introduction
+
+Two-stage designs are a cost-effective approach for studies where a key
+covariate is expensive to measure. In the first stage, inexpensive
+outcome data is collected on all subjects. In the second stage, the
+expensive covariate is measured only on a strategically selected subset.
+The `bayes2stage` package provides tools for:
+
+1.  **Simulating** longitudinal data with random effects
+2.  **Designing** the second-stage sample using outcome-dependent or
+    BLUP-dependent sampling
+3.  **Fitting** Bayesian mixed effects models that impute missing
+    covariate values
+
+## Example Workflow
+
+### Step 1: Generate Data
+
+First, we simulate longitudinal data where each subject has repeated
+measurements over time:
+
+``` r
+library(bayes2stage)
+
+set.seed(123)
+data <- generate_data(
+  N = 1000,                    # 1000 subjects
+
+M = 5,                       # 5 time points each
+  x_dist = "normal",           # x is continuous
+  beta_x = 1,                  # effect of x on outcome
+  beta_t = 2,                  # effect of time
+  beta_t_x_interaction = 0.3,  # x modifies the trajectory
+  rand_intercept_sd = 3,       # subject-level intercept variation
+  rand_slope_sd = 1            # subject-level slope variation
+)
+
+head(data)
+```
+
+The data includes:
+
+- `y`: the outcome measured at each time point
+- `t`: time (scaled 0-1)
+- `x`: the expensive covariate (constant within subject)
+- `z`: a cheap covariate (constant within subject)
+- `id`: subject identifier
+
+### Step 2: Apply a Sampling Design
+
+Now we select which subjects will have `x` measured. Outcome-dependent
+sampling (ODS) selects subjects based on their estimated trajectories,
+oversampling from the tails:
+
+``` r
+stage2_data <- ods_design(
+  data,
+  sampling_type = "slope",     # select based on OLS slopes
+  cutoff_low = 0.25,           # bottom 25% = "low" stratum
+  cutoff_high = 0.75,          # top 25% = "high" stratum
+  n_sampled = 200,             # sample 200 subjects total
+  prop_low = 0.4,              # 40% from low stratum
+  prop_middle = 0.2,           # 20% from middle
+  prop_high = 0.4              # 40% from high stratum
+)
+
+# Check how many have x observed vs missing
+table(is.na(stage2_data$x))
+```
+
+For subjects not selected, `x` is set to `NA`.
+
+### Step 3: Fit a Bayesian Model
+
+The Stan-based model jointly estimates the outcome model and imputes
+missing `x` values:
+
+``` r
+fit <- fit_stan_model(
+  data = stage2_data,
+  main_model_covariates = c("x", "z", "t"),
+  imputation_model_covariates = c("z"),
+  imputation_distribution = "normal",
+  n_chains = 4,
+  iter_warmup = 1000,
+  iter_sampling = 1000,
+  parallel_chains = 4
+)
+```
+
+### Step 4: Examine Results
+
+``` r
+# Parameter summaries
+fit$summary(variables = c("alpha", "beta_x", "beta_z", "beta_t"))
+
+# Trace plots for diagnostics
+mcmc_trace(fit)
+```
+
+## Sampling Design Options
+
+The package provides three sampling strategies:
+
+| Function                                                                          | Method                 | Best When                                       |
+|-----------------------------------------------------------------------------------|------------------------|-------------------------------------------------|
+| [`srs_design()`](https://maxdrohde.github.io/bayes2stage/reference/srs_design.md) | Simple random sampling | No prior information about trajectories         |
+| [`ods_design()`](https://maxdrohde.github.io/bayes2stage/reference/ods_design.md) | OLS-based selection    | Quick, approximate trajectory estimates suffice |
+| [`bds_design()`](https://maxdrohde.github.io/bayes2stage/reference/bds_design.md) | BLUP-based selection   | More accurate trajectory estimates needed       |
+
+## Supported Covariate Distributions
+
+Choose the imputation distribution based on the nature of `x`:
+
+| `imputation_distribution` | Use Case              |
+|---------------------------|-----------------------|
+| `"normal"`                | Continuous covariates |
+| `"bernoulli"`             | Binary covariates     |
+| `"negative_binomial"`     | Unbounded counts      |
+| `"beta_binomial"`         | Bounded counts        |
+
+## Alternative: ACML Estimation
+
+For frequentist analysis, use ascertainment-corrected maximum
+likelihood:
+
+``` r
+acml_fit <- fit_acml_ods(
+  ods_df = stage2_data,
+  cutoff_low = 0.25,
+  cutoff_high = 0.75
+)
+
+acml_fit
+```
+
+## Further Reading
+
+- Package documentation:
+  [`?fit_stan_model`](https://maxdrohde.github.io/bayes2stage/reference/fit_stan_model.md),
+  [`?ods_design`](https://maxdrohde.github.io/bayes2stage/reference/ods_design.md),
+  [`?generate_data`](https://maxdrohde.github.io/bayes2stage/reference/generate_data.md)
+- GitHub: <https://github.com/maxdrohde/bayes2stage>
