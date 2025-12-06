@@ -37,4 +37,9 @@ test_that("stage2 sampling", {
                                     prop_high = prop_high,
                                     prop_middle = prop_middle,
                                     prop_low = prop_low)
+
+  # Verify correct number of subjects sampled
+  expect_equal(length(unique(srs_df$id[!is.na(srs_df$x)])), n_sampled)
+  expect_equal(length(unique(ods_df$id[!is.na(ods_df$x)])), n_sampled)
+  expect_equal(length(unique(bds_df$id[!is.na(bds_df$x)])), n_sampled)
 })

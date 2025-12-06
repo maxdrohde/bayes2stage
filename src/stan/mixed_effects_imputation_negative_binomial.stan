@@ -180,3 +180,6 @@ model {
     target += log_sum_exp(log_probs_nb + lp_y);
   }
 }
+
+
+

@@ -1,26 +1,23 @@
 Package: bayes2stage
-Title: Bayesian Analysis of Two-Stage Designs
+Title: Bayesian Analysis of Two-Stage Designs with Longitudinal Data
 Version: 0.0.0.9000
 Authors@R:
     person("Maximilian", "Rohde", , "maxdrohde@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-3731-3372"))
-Author: Maximilian Rohde [aut, cre] (<https://orcid.org/0000-0002-3731-3372>)
-Maintainer: Maximilian Rohde <maxdrohde@gmail.com>
-Description: Provides functions for analyzing Bayesian Two-Stage Designs
-    using NIMBLE for model fitting, and for generating simulated data from
-    two-stage designs.
+Description: Tools for designing and analyzing two-stage studies with
+    longitudinal data. Supports outcome-dependent sampling (ODS) and
+    BLUP-dependent sampling (BDS) designs where expensive covariates are
+    measured on a subset of subjects. Bayesian model fitting uses 'Stan' via
+    the 'instantiate' package for mixed effects models with imputation.
+    Also provides ascertainment-corrected maximum likelihood (ACML) estimation
+    and legacy support for 'NIMBLE'-based fitting.
 License: MIT + file LICENSE
 URL: https://github.com/maxdrohde/bayes2stage
 BugReports: https://github.com/maxdrohde/bayes2stage/issues
 Depends:
-    MASS,
-    mvtnorm,
-    nimble,
-    nimbleEcology,
-    nimbleMacros,
-    numDeriv,
     R (>= 4.1.0)
 Imports:
+    cmdstanr,
     data.table,
     dplyr,
     extraDistr,
@@ -28,15 +25,26 @@ Imports:
     glue,
     instantiate,
     lme4,
+    MASS,
     MCMCvis,
+    mvtnorm,
+    nimble,
+    nimbleEcology,
+    nimbleMacros,
+    numDeriv,
     patchwork,
     purrr,
     rlang,
     stats,
     tibble
-Suggests: 
+Additional_repositories: https://stan-dev.r-universe.dev
+Suggests:
+    knitr,
+    pkgdown,
+    quarto,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
+VignetteBuilder: quarto
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3

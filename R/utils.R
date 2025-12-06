@@ -4,6 +4,27 @@ is_positive_integer <- function(x) {
   is.numeric(x) & is.finite(x) & x > 0 & is_whole_number(x)
 }
 
+#' Generate a unique seed from two indices using Cantor pairing
+#'
+#' Uses the Cantor pairing function to generate a unique integer seed from
+#' two positive integer indices. Useful for reproducible simulations where
+#' each (i, j) combination needs a unique seed.
+#'
+#' @param i First positive integer index
+#' @param j Second positive integer index
+#' @return A unique integer seed
+#' @examples
+#' cantor_seed(1, 1)
+#' cantor_seed(5, 10)
+#' @export
+cantor_seed <- function(i, j) {
+  stopifnot(i >= 1L, j >= 1L)
+  k <- i + j
+  seed <- as.integer((k * (k + 1L)) %/% 2L + j)
+  if (seed > .Machine$integer.max) stop("seed overflow")
+  seed
+}
+
 #' Create a forest plot of MCMC output
 #'
 #' A wrapper around MCMCvis::MCMCplot to create forest plots of MCMC samples.

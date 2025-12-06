@@ -4,9 +4,9 @@
 \name{bayes2stage-package}
 \alias{bayes2stage}
 \alias{bayes2stage-package}
-\title{bayes2stage: Bayesian Analysis of Two-Stage Designs}
+\title{bayes2stage: Bayesian Analysis of Two-Stage Designs with Longitudinal Data}
 \description{
-Provides functions for analyzing Bayesian Two-Stage Designs using NIMBLE for model fitting, and for generating simulated data from two-stage designs.
+Tools for designing and analyzing two-stage studies with longitudinal data. Supports outcome-dependent sampling (ODS) and BLUP-dependent sampling (BDS) designs where expensive covariates are measured on a subset of subjects. Bayesian model fitting uses 'Stan' via the 'instantiate' package for mixed effects models with imputation. Also provides ascertainment-corrected maximum likelihood (ACML) estimation and legacy support for 'NIMBLE'-based fitting.
 }
 \seealso{
 Useful links:

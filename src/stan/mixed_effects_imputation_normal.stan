@@ -99,3 +99,9 @@ generated quantities {
   cov_matrix[2] cov_rand_effects =
     quad_form_diag(corr_rand_effects, sigma_re);
 }
+
+
+
+
+
+

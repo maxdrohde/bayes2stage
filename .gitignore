@@ -20,3 +20,9 @@ inst/.quarto
 
 # Analysis folder (development/research scripts)
 analysis/
+
+# Quarto vignette intermediates
+vignettes/*_files/
+
+# pkgdown
+docs/

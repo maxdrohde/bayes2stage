@@ -163,3 +163,8 @@ generated quantities {
   corr_matrix[2] corr_rand_effects = multiply_lower_tri_self_transpose(L_re);
   cov_matrix[2] cov_rand_effects = quad_form_diag(corr_rand_effects, sigma_re);
 }
+
+
+
+
+

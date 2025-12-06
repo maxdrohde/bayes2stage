@@ -1,0 +1,60 @@
+url: https://maxdrohde.github.io/bayes2stage/
+
+template:
+  bootstrap: 5
+  light-switch: true
+
+navbar:
+  structure:
+    left: [intro, reference, articles, news]
+    right: [search, github, lightswitch]
+
+reference:
+- title: Data Generation
+  desc: Simulate longitudinal data for two-stage designs
+  contents:
+  - generate_data
+  - generate_data_schild_2019_supp
+
+- title: Sampling Designs
+  desc: Select subjects for stage 2 measurement
+  contents:
+  - srs_design
+  - ods_design
+  - bds_design
+
+- title: Model Fitting
+  desc: Fit Bayesian models with imputation
+  contents:
+  - fit_stan_model
+  - fit_model
+  - fit_acml_ods
+
+- title: MCMC Diagnostics
+  desc: Summarize and visualize MCMC output
+  contents:
+  - mcmc_summary
+  - mcmc_trace
+  - mcmc_forest
+
+- title: Utilities
+  desc: Helper functions
+  contents:
+  - format_data_mcmc
+  - set_missing
+  - plot_data
+  - check_cols
+
+- title: ACML Internal Functions
+  desc: Internal functions for ascertainment-corrected maximum likelihood
+  contents:
+  - starts_with("AC")
+  - starts_with("logAC")
+  - starts_with("li.")
+  - vi.calc
+  - acml.lmem2
+  - CreateSubjectData
+  - LogLikeC2
+  - LogLikeC.Score2
+  - LogLikeCAndScore2
+  - LogLikeiC2

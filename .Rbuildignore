@@ -12,3 +12,8 @@
 ^cleanup$
 ^cleanup\.win$
 ^analysis$
+^vignettes/.*_files$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
+^\.github$
