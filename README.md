@@ -7,6 +7,8 @@
 
 <!-- badges: end -->
 
+> **⚠️ Not ready for use:** bayes2stage is under active development; interfaces and results may change without notice. Do not use for production analyses yet.
+
 `bayes2stage` provides tools for designing and analyzing Bayesian
 two-stage studies with longitudinal data. The package supports
 outcome-dependent sampling (ODS) and BLUP-dependent sampling (BDS)
