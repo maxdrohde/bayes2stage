@@ -57,8 +57,8 @@ model {
   beta_x ~ normal(0, 100);
   beta_x_t_interaction ~ normal(0, 100);
 
-  alpha_imputation ~ normal(0, 100);
-  gamma ~ normal(0, 100);
+  alpha_imputation ~ normal(0, 2.5);
+  gamma ~ normal(0, 2.5);
 
   // --- 1. Linear Algebra (Vectorized over N) ---
   

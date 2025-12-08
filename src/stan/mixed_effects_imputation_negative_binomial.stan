@@ -84,8 +84,9 @@ model {
   beta_x ~ normal(0, 100);
   beta_x_t_interaction ~ normal(0, 100);
 
-  alpha_imputation ~ normal(0, 100);
-  gamma ~ normal(0, 100);
+  // Imputation model (log scale)
+  alpha_imputation ~ normal(0, 2.5);
+  gamma ~ normal(0, 2.5);
   phi ~ exponential(0.1);
 
   // === Transformed quantities (Local) ===
@@ -181,5 +182,7 @@ model {
   }
 }
 
-
-
+generated quantities {
+  corr_matrix[2] corr_rand_effects = multiply_lower_tri_self_transpose(L_re);
+  cov_matrix[2] cov_rand_effects = quad_form_diag(corr_rand_effects, sigma_re);
+}
