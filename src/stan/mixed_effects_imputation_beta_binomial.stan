@@ -55,15 +55,15 @@ model {
 
   // Main model
   sigma_main ~ exponential(0.1);
-  alpha_main ~ normal(0, 2);
-  beta ~ normal(0, 2);
-  beta_t ~ normal(0, 2);
-  beta_x ~ normal(0, 2);
-  beta_x_t_interaction ~ normal(0, 2);
+  alpha_main ~ normal(0, 100);
+  beta ~ normal(0, 100);
+  beta_t ~ normal(0, 100);
+  beta_x ~ normal(0, 100);
+  beta_x_t_interaction ~ normal(0, 100);
 
   // Imputation model
-  alpha_imputation ~ normal(0, 2.5);
-  gamma ~ normal(0, 2.5);
+  alpha_imputation ~ normal(0, 100);
+  gamma ~ normal(0, 100);
   phi ~ exponential(0.1);
 
   // === Transformed quantities (Local) ===

@@ -50,10 +50,21 @@ format_data_mcmc <- function(data,
     x_obs <- x_obs_raw
   }
 
+  # Compute pos and len arrays for optimized Stan models
+  # These map from subject IDs (G) to observation indices (N)
+  G <- nrow(id_df)
+  pos <- integer(G)
+  len <- integer(G)
+  for (g in 1:G) {
+    idx <- which(data$id_idx == g)
+    pos[g] <- min(idx)
+    len[g] <- length(idx)
+  }
+
   data_list <-
     list(
       N       = nrow(data),
-      G       = nrow(id_df),
+      G       = G,
       G_obs   = sum(!is.na(id_df$x)),
       G_mis   = sum(is.na(id_df$x)),
       P       = P,
@@ -65,7 +76,9 @@ format_data_mcmc <- function(data,
       index_obs = which(!is.na(id_df$x)),
       index_mis = which(is.na(id_df$x)),
       x_obs     = x_obs,
-      id        = data$id_idx
+      id        = data$id_idx,
+      pos       = pos,
+      len       = len
     )
 
   # Add n_trials for beta_binomial model
