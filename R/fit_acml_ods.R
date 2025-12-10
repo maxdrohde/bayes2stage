@@ -19,16 +19,16 @@ fit_acml_ods <- function(ods_df,
     dplyr::distinct(id, .keep_all = TRUE)
 
   # Compute the quantiles for the target intercept or slope
-  q_low  <- as.numeric(quantile(subj$target,
+  q_low  <- as.numeric(stats::quantile(subj$target,
                                 probs = cutoff_low,
                                 na.rm = TRUE))
 
-  q_high <- as.numeric(quantile(subj$target,
+  q_high <- as.numeric(stats::quantile(subj$target,
                                 probs = cutoff_high,
                                 na.rm = TRUE))
 
   # Filter to selected subjects
-  samp <- filter(ods_df, selected)
+  samp <- dplyr::filter(ods_df, selected)
 
   # Don't use weights
   samp$Weights <- 1
@@ -41,8 +41,8 @@ fit_acml_ods <- function(ods_df,
   # Compute ODS sampling probabilities
   lv <- c("Low","Middle","High")
   by_id <- dplyr::group_split(ods_df, id)
-  cat_by_id <- map_chr(by_id, ~ as.character(.x$category[[1]]))
-  sel_by_id <- map_lgl(by_id, ~ any(!is.na(.x$x)))
+  cat_by_id <- purrr::map_chr(by_id, ~ as.character(.x$category[[1]]))
+  sel_by_id <- purrr::map_lgl(by_id, ~ any(!is.na(.x$x)))
   N_by    <- table(factor(cat_by_id, levels = lv))
   nsel_by <- table(factor(cat_by_id[sel_by_id], levels = lv))
   SampProb_vec <- ifelse(N_by > 0, as.numeric(nsel_by) / as.numeric(N_by), 0)
@@ -59,7 +59,7 @@ fit_acml_ods <- function(ods_df,
   sd_b0 <- attr(vc, "stddev")[1]
   sd_b1 <- attr(vc, "stddev")[2]
   rho01 <- attr(vc, "correlation")[1, 2]
-  sd_e  <- sigma(m0)
+  sd_e  <- stats::sigma(m0)
 
   z_rho   <- log((1 + rho01) / (1 - rho01))
   InitVals <- c(beta0, log(sd_b0), log(sd_b1), z_rho, log(sd_e))
@@ -81,23 +81,23 @@ fit_acml_ods <- function(ods_df,
   est <- fit$coefficients
   V   <- fit$robcov
   se  <- sqrt(diag(V))
-  z   <- qnorm(0.975)
+  z   <- stats::qnorm(0.975)
 
   ci_est <- data.frame(
-    parameter = c(
-      "(Intercept)",
-      "t",
-      "z",
-      "x",
-      "x:t",
-      "log(sd_(Intercept))",
-      "log(sd_t)",
-      "z_rho((Intercept),t)",
-      "log(sd_eps)"),
-    estimate = est,
-    se = se,
-    lower = est - z*se,
-    upper = est + z*se
+    variable = c(
+      "alpha_main",
+      "beta_t",
+      "beta_z",
+      "beta_x",
+      "beta_x_t_interaction",
+      "log_sigma_re[1]",
+      "log_sigma_re[2]",
+      "z_corr_re",
+      "log_sigma_main"),
+    mean = est,
+    sd = se,
+    q5 = est - z*se,
+    q95 = est + z*se
   )
 
   return(ci_est)

@@ -4,7 +4,7 @@
 
 use_waic <- TRUE
 
-nimbleOptions("enableWAIC" = use_waic)
+nimble::nimbleOptions("enableWAIC" = use_waic)
 
 ###############################################################################
 # Create the NIMBLE model line for the main model
@@ -179,7 +179,7 @@ build_nimble_code <- function(main_model_covariates,
                               imputation_model_priors) {
 
   modelCode <- eval(bquote(
-    nimbleCode({
+    nimble::nimbleCode({
       .(create_main_model_linpred(main_model_covariates,
                                   main_model_priors))
 
@@ -279,29 +279,29 @@ fit_model <- function(data,
     constants[[covariate]] <- G_df[[covariate]]
   }
 
-  main_model_priors <- setPriors(
+  main_model_priors <- nimbleMacros::setPriors(
     intercept = quote(dnorm(0, sd = 2)),
     coefficient = quote(dnorm(0, sd = 2))
   )
 
   if (imputation_model_distribution == "normal") {
-    imputation_model_priors <- setPriors(
+    imputation_model_priors <- nimbleMacros::setPriors(
       intercept = quote(dnorm(0, sd = 2)),
       coefficient = quote(dnorm(0, sd = 2))
     )
   } else if (imputation_model_distribution %in% c("binomial", "beta_binomial")) {
-    imputation_model_priors <- setPriors(
+    imputation_model_priors <- nimbleMacros::setPriors(
       intercept = quote(dnorm(0, sd = 2.5)),
       coefficient = quote(dnorm(0, sd = 2.5))
     )
   } else if (imputation_model_distribution %in% c("poisson", "negative_binomial")) {
-    imputation_model_priors <- setPriors(
+    imputation_model_priors <- nimbleMacros::setPriors(
       intercept = quote(dnorm(0, sd = 2.5)),
       coefficient = quote(dnorm(0, sd = 2.5))
     )
   } else {
     # Default for any other distributions
-    imputation_model_priors <- setPriors(
+    imputation_model_priors <- nimbleMacros::setPriors(
       intercept = quote(dnorm(0, sd = 100)),
       coefficient = quote(dnorm(0, sd = 100))
     )
@@ -316,9 +316,9 @@ fit_model <- function(data,
     imputation_model_priors = imputation_model_priors
   )
 
-  mod <- nimbleModel(code = code,
-                     constants = constants,
-                     buildDerivs = FALSE)
+  mod <- nimble::nimbleModel(code = code,
+                             constants = constants,
+                             buildDerivs = FALSE)
 
   # model_code <- mod$getCode()
   # print(model_code)
@@ -332,10 +332,10 @@ fit_model <- function(data,
     mon  <- vars[ grepl("^(beta_|gamma_|sigma_)", vars) ]
   }
 
-  conf <- configureMCMC(mod,
-                        monitors = mon,
-                        print = FALSE,
-                        enableWAIC = use_waic)
+  conf <- nimble::configureMCMC(mod,
+                                monitors = mon,
+                                print = FALSE,
+                                enableWAIC = use_waic)
 
   ##############################################################################
 
@@ -343,19 +343,19 @@ fit_model <- function(data,
 
   # conf$printSamplers()
 
-  mcmc  <- buildMCMC(conf)
+  mcmc  <- nimble::buildMCMC(conf)
 
-  Cmod  <- compileNimble(mod)
+  Cmod  <- nimble::compileNimble(mod)
 
-  Cmcmc <- compileNimble(mcmc,
-                         project = Cmod)
+  Cmcmc <- nimble::compileNimble(mcmc,
+                                 project = Cmod)
 
-  samples <- runMCMC(Cmcmc,
-                     nchains = n_chains,
-                     niter = niter,
-                     nburnin = nburnin,
-                     WAIC = use_waic,
-                     samplesAsCodaMCMC = TRUE)
+  samples <- nimble::runMCMC(Cmcmc,
+                             nchains = n_chains,
+                             niter = niter,
+                             nburnin = nburnin,
+                             WAIC = use_waic,
+                             samplesAsCodaMCMC = TRUE)
 
   if (print_code) {
     cat("CODE:----------------------------------------------------------------")

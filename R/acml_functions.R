@@ -30,7 +30,7 @@ vi.calc <- function(zi, sigma.vc, rho.vc, sigma.e){
 #' @return Not yet log transformed ascertainment correction
 #' @export
 ACi1q <- function(cutpoints, SampProb, mu_q, sigma_q){
-    CDFs <- pnorm(c(-Inf, cutpoints, Inf), mu_q, sigma_q)
+    CDFs <- stats::pnorm(c(-Inf, cutpoints, Inf), mu_q, sigma_q)
     sum( SampProb*(CDFs[2:length(CDFs)] - CDFs[1:(length(CDFs)-1)]) )
 }
 
@@ -45,7 +45,7 @@ ACi1q <- function(cutpoints, SampProb, mu_q, sigma_q){
 #' @return Not yet log transformed ascertainment correction
 #' @export
 ACi2q <- function(cutpoints, SampProb, mu_q, sigma_q){
-    (SampProb[1]-SampProb[2])*pmvnorm(lower=c(cutpoints[c(1,3)]), upper=c(cutpoints[c(2,4)]), mean=mu_q, sigma=sigma_q)[[1]] + SampProb[2]
+    (SampProb[1]-SampProb[2])*mvtnorm::pmvnorm(lower=c(cutpoints[c(1,3)]), upper=c(cutpoints[c(2,4)]), mean=mu_q, sigma=sigma_q)[[1]] + SampProb[2]
 }
 
 #' Log of the Ascertainment correction for univariate sampling
@@ -282,7 +282,7 @@ logACi2q.score2 <- function(subjectData, beta, sigma.vc, rho.vc, sigma.e){
 
     Deriv   <- sapply(1:npar,  function(rr)
     {
-        grad(function(x) { new.param <- param
+        numDeriv::grad(function(x) { new.param <- param
                            new.param[rr] <- x
                            vi      <- vi.calc(zi, new.param[vc.sd.index], new.param[vc.rho.index], new.param[err.sd.index])
                            mu_q    <- as.vector(wi %*% (xi %*% new.param[c(beta.index)]))
@@ -290,7 +290,7 @@ logACi2q.score2 <- function(subjectData, beta, sigma.vc, rho.vc, sigma.e){
                            ## for some reason the upper and lower triangles to not always equal.  Not sure this is a problem here
                            ## but doing this to be safe.  Maybe can remove later once understood.
                            sigma_q <- (sigma_q + t(sigma_q))/2
-                           pmvnorm(lower=c(cutpoints[c(1,3)]), upper=c(cutpoints[c(2,4)]), mean=mu_q, sigma=sigma_q)[[1]]
+                           mvtnorm::pmvnorm(lower=c(cutpoints[c(1,3)]), upper=c(cutpoints[c(2,4)]), mean=mu_q, sigma=sigma_q)[[1]]
         },
         param[rr],
         method="simple",
@@ -356,7 +356,7 @@ logACi1q.score2 <- function(subjectData, beta, sigma.vc, rho.vc, sigma.e){
 
     l <- ACi1q(cutpoints, SampProb, mu_q, sigma_q)
     p <- SampProb[1:(length(SampProb)-1)] - SampProb[2:(length(SampProb))]
-    f <- dnorm(cutpoints, mu_q, sigma_q)
+    f <- stats::dnorm(cutpoints, mu_q, sigma_q)
 
     d_li_beta <- (wi %*% xi) * sum(p*f) / l
     f_alpha_k <- sum(p*f*(cutpoints - mu_q)) / (l * 2* sigma_q^2 )
@@ -668,26 +668,26 @@ acml.lmem2 <- function(formula.fixed,
                       as.character(substitute(id)), as.character(substitute(Weights))) )
     data  = data[,terms]
 
-    if(any(is.na(data))) data = na.omit(data)
+    if(any(is.na(data))) data = stats::na.omit(data)
 
     id0   =  as.character(substitute(id))
     id    = data$id = data[ , id0 ]
 
-    fixed.f = model.frame(formula.fixed, data)
+    fixed.f = stats::model.frame(formula.fixed, data)
     fixed.t = attr(fixed.f, "terms")
-    y      = model.response(fixed.f,'numeric')
+    y      = stats::model.response(fixed.f,'numeric')
     uy     = unique(y)
-    x      = model.matrix(formula.fixed, fixed.f)
+    x      = stats::model.matrix(formula.fixed, fixed.f)
 
-    rand.f = model.frame(formula.random, data)
-    #z      = model.matrix(formula.random, rand.f) ####### changed Aug19, 2019
-    z      = model.matrix(formula.random, fixed.f) ####### changed Aug19, 2019
+    rand.f = stats::model.frame(formula.random, data)
+    #z      = stats::model.matrix(formula.random, rand.f) ####### changed Aug19, 2019
+    z      = stats::model.matrix(formula.random, fixed.f) ####### changed Aug19, 2019
 
     #if (is.na(SampProb[1])) SampProb = c(1,1,1)
     Weights0   =  as.character(substitute(Weights))
     Weights    = data$Weights = data[ , Weights0 ]
 
-    acml.fit <- nlm(LogLikeCAndScore2, InitVals, y=y, x=x, z=z, id=id, w.function=w.function,
+    acml.fit <- stats::nlm(LogLikeCAndScore2, InitVals, y=y, x=x, z=z, id=id, w.function=w.function,
                     cutpoints=cutpoints, SampProb=SampProb, Weights=Weights, ProfileCol=ProfileCol,
                     stepmax=4, iterlim=250, check.analyticals = TRUE, print.level=2)
 
