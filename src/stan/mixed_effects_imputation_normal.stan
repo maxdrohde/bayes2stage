@@ -1,4 +1,3 @@
-
 data {
   int<lower=0> N;                   // number of observations
   int<lower=1> G;                   // number of subjects
@@ -22,7 +21,6 @@ data {
 }
 
 parameters {
-
   // Non-centered random effects
   matrix[2, G] z_re;                      // latent standard-normal random effects
   vector<lower=0>[2] sigma_re;            // SDs of random effects
@@ -46,10 +44,16 @@ parameters {
 }
 
 transformed parameters {
-  // Reconstruct missing x values from non-centered parameterization
-  // We need to calculate the linear predictor for the missing subjects first
+  // Imputation model linear predictor
   vector[G] x_imputation_lp = alpha_imputation + Z * gamma;
+
+  // Non-centered parameterization for missing x
   vector[G_mis] x_mis = x_imputation_lp[index_mis] + sigma_imputation * x_mis_raw;
+
+  // Full x vector (observed + imputed)
+  vector[G] x;
+  x[index_obs] = x_obs;
+  x[index_mis] = x_mis;
 }
 
 model {
@@ -71,22 +75,14 @@ model {
   alpha_imputation ~ normal(0, 100);
   gamma ~ normal(0, 100);
 
-  // Missing data imputation (Non-centered)
+  // Non-centered prior for missing x
   x_mis_raw ~ std_normal();
-  
-  // Note: Only observed values contribute to likelihood for 'x'
-  // But wait, in the non-centered parameterization we just defined x_mis
-  // The 'x_obs' still need to be modeled if we want to learn alpha_imputation, gamma, etc.
-  // from the observed data.
+
+  // Imputation model likelihood (observed x only)
   x_obs ~ normal(x_imputation_lp[index_obs], sigma_imputation);
 
-  // Combine observed and imputed x
-  vector[G] x;
-  x[index_obs] = x_obs;
-  x[index_mis] = x_mis;
-
-  matrix[2, G] re;
-  re = diag_pre_multiply(sigma_re, L_re) * z_re;
+  // Random effects (non-centered)
+  matrix[2, G] re = diag_pre_multiply(sigma_re, L_re) * z_re;
 
   // Main model likelihood
   {
