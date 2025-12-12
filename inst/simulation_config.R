@@ -31,6 +31,48 @@ SHOW_MCMC_DIAGNOSTICS <- TRUE
 
 DEFAULT_STAN_DISTRIBUTION <- "normal"
 
+# =============================================================================
+# MCMC Parameterization and Sampling Settings
+# =============================================================================
+# For large N (>500), use "marginal" parameterization which integrates out
+# random effects analytically. This reduces parameters from ~5500 to ~1500
+# for N=2000, dramatically improving mixing.
+#
+# Options: "noncentered", "centered", "marginal", "improved"
+# - noncentered: best for small N with weak data
+# - centered: better for large N
+# - marginal: RECOMMENDED for large N - integrates out random effects
+# - improved: centered with better priors
+DEFAULT_PARAMETERIZATION <- "marginal"
+
+# Increase adapt_delta for complex posteriors (default 0.8, max 1.0)
+# Higher values = slower but more robust sampling
+DEFAULT_ADAPT_DELTA <- 0.95
+
+# Increase max_treedepth if seeing treedepth warnings (default 10)
+DEFAULT_MAX_TREEDEPTH <- 12L
+
+# =============================================================================
+# Prior Hyperparameters (for marginal and improved models)
+# =============================================================================
+# These should be set based on the expected scale of your parameters
+# The defaults are appropriate for standardized data
+
+# SD for normal priors on regression coefficients
+# True values in simulation: beta_x=-1, beta_z=-2, beta_t=-1, etc.
+# A SD of 5 allows values roughly in [-10, 10]
+DEFAULT_PRIOR_BETA_SD <- 5.0
+
+# Rate for exponential prior on residual SD
+# True value: error_sd = 1
+# Rate of 1 gives mean=1, P(sigma < 3) ≈ 0.95
+DEFAULT_PRIOR_SIGMA_RATE <- 1.0
+
+# Rate for exponential prior on random effect SDs
+# True values: rand_intercept_sd=4, rand_slope_sd=1
+# Rate of 0.25 gives mean=4, allows larger values
+DEFAULT_PRIOR_SIGMA_RE_RATE <- 0.25
+
 ################################################################################
 # Simulation Grid
 ################################################################################

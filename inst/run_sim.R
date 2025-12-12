@@ -83,14 +83,23 @@ n_sampled <- as.integer(params[["sampling_fraction"]] * N)
 ################################################################################
 
 fit_model <- function(data) {
+  # Use marginal parameterization for large N to improve MCMC mixing
+  # The marginal model integrates out random effects analytically,
+  # reducing parameters from ~5500 to ~1500 for N=2000
   fit_stan_model(
     data = data,
     main_model_covariates = c("z"),
     imputation_model_covariates = c("z"),
     imputation_distribution = DEFAULT_STAN_DISTRIBUTION,
+    parameterization = DEFAULT_PARAMETERIZATION,
     n_chains = DEFAULT_MCMC_CHAINS,
     iter_warmup = DEFAULT_MCMC_BURNIN,
-    iter_sampling = DEFAULT_MCMC_ITERATIONS
+    iter_sampling = DEFAULT_MCMC_ITERATIONS,
+    adapt_delta = DEFAULT_ADAPT_DELTA,
+    max_treedepth = DEFAULT_MAX_TREEDEPTH,
+    prior_beta_sd = DEFAULT_PRIOR_BETA_SD,
+    prior_sigma_rate = DEFAULT_PRIOR_SIGMA_RATE,
+    prior_sigma_re_rate = DEFAULT_PRIOR_SIGMA_RE_RATE
   )
 }
 
