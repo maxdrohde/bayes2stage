@@ -13,7 +13,7 @@ mcmc_forest(mcmc_output)
 
 - mcmc_output:
 
-  MCMC output object (e.g., from fit_model)
+  MCMC output object
 
 ## Value
 

@@ -47,14 +47,11 @@
 - [`fit_acml_ods()`](https://maxdrohde.github.io/bayes2stage/reference/fit_acml_ods.md)
   : Fit ACML model for outcome-dependent sampling
 
-- [`fit_model()`](https://maxdrohde.github.io/bayes2stage/reference/fit_model.md)
-  : Fit a Bayesian two-stage model using NIMBLE
-
 - [`fit_stan_model()`](https://maxdrohde.github.io/bayes2stage/reference/fit_stan_model.md)
   : Fit a Bayesian two-stage model using Stan
 
 - [`format_data_mcmc()`](https://maxdrohde.github.io/bayes2stage/reference/format_data_mcmc.md)
-  : Format the simulated data for Stan / NIMBLE
+  : Format the simulated data for Stan
 
 - [`generate_data()`](https://maxdrohde.github.io/bayes2stage/reference/generate_data.md)
   : Generate correlated random intercept / slope longitudinal data
@@ -100,6 +97,33 @@
 
 - [`plot_data()`](https://maxdrohde.github.io/bayes2stage/reference/plot_data.md)
   : Plot simulated data
+
+- [`ppc_imputation()`](https://maxdrohde.github.io/bayes2stage/reference/ppc_imputation.md)
+  : Posterior Predictive Checks for Imputation Model
+
+- [`ppc_imputation_bernoulli()`](https://maxdrohde.github.io/bayes2stage/reference/ppc_imputation_bernoulli.md)
+  : PPC for Bernoulli imputation model
+
+- [`ppc_imputation_beta_binomial()`](https://maxdrohde.github.io/bayes2stage/reference/ppc_imputation_beta_binomial.md)
+  : PPC for beta-binomial imputation model
+
+- [`ppc_imputation_count()`](https://maxdrohde.github.io/bayes2stage/reference/ppc_imputation_count.md)
+  : PPC for count imputation model (negative binomial)
+
+- [`ppc_imputation_density()`](https://maxdrohde.github.io/bayes2stage/reference/ppc_imputation_density.md)
+  : Posterior predictive density check for imputation model
+
+- [`ppc_imputation_intervals()`](https://maxdrohde.github.io/bayes2stage/reference/ppc_imputation_intervals.md)
+  : Check prediction interval coverage
+
+- [`ppc_imputation_residuals()`](https://maxdrohde.github.io/bayes2stage/reference/ppc_imputation_residuals.md)
+  : Residual diagnostics for normal imputation model
+
+- [`ppc_imputation_stat()`](https://maxdrohde.github.io/bayes2stage/reference/ppc_imputation_stat.md)
+  : Posterior predictive check for a summary statistic
+
+- [`print(`*`<ppc_imputation>`*`)`](https://maxdrohde.github.io/bayes2stage/reference/print.ppc_imputation.md)
+  : Print method for ppc_imputation results
 
 - [`set_missing()`](https://maxdrohde.github.io/bayes2stage/reference/set_missing.md)
   : Given selected subjects, set X to missing for those not selected

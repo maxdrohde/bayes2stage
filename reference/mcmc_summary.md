@@ -1,7 +1,8 @@
 # Extract MCMC summary statistics
 
 A wrapper around MCMCvis::MCMCsummary to extract summary statistics from
-MCMC samples.
+MCMC samples. For CmdStanR fits, also extracts HMC diagnostics
+(divergent transitions, max treedepth exceeded, E-BFMI).
 
 ## Usage
 
@@ -13,7 +14,7 @@ mcmc_summary(mcmc_output, dataset_id)
 
 - mcmc_output:
 
-  MCMC output object (e.g., from fit_model)
+  MCMC output object
 
 - dataset_id:
 

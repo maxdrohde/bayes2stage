@@ -13,7 +13,7 @@ mcmc_trace(mcmc_output, print_to_pdf = FALSE)
 
 - mcmc_output:
 
-  MCMC output object (e.g., from fit_model)
+  MCMC output object
 
 - print_to_pdf:
 

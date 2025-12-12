@@ -5,16 +5,13 @@ data. Supports outcome-dependent sampling (ODS) and BLUP-dependent
 sampling (BDS) designs where expensive covariates are measured on a
 subset of subjects. Bayesian model fitting uses 'Stan' via the
 'instantiate' package for mixed effects models with imputation. Also
-provides ascertainment-corrected maximum likelihood (ACML) estimation
-and legacy support for 'NIMBLE'-based fitting.
+provides ascertainment-corrected maximum likelihood (ACML) estimation.
 
 ## See also
 
 Useful links:
 
 - <https://github.com/maxdrohde/bayes2stage>
-
-- <https://maxdrohde.github.io/bayes2stage>
 
 - <https://maxdrohde.github.io/bayes2stage/>
 

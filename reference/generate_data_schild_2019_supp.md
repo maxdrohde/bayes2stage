@@ -40,23 +40,23 @@ generate_data_schild_2019_supp(
 
 - alpha_main:
 
-  Numeric. Fixed intercept (β₀). Default is 75.
+  Numeric. Fixed intercept (beta_0). Default is 75.
 
 - beta_x:
 
-  Numeric. Main effect of binary exposure X (β_s). Default is -0.5.
+  Numeric. Main effect of binary exposure X (beta_s). Default is -0.5.
 
 - beta_z:
 
-  Numeric. Effect of continuous confounder Z (β_c). Default is -2.
+  Numeric. Effect of continuous confounder Z (beta_c). Default is -2.
 
 - beta_t:
 
-  Numeric. Fixed time effect (β_t). Default is -1.
+  Numeric. Fixed time effect (beta_t). Default is -1.
 
 - beta_t_x_interaction:
 
-  Numeric. Interaction between time and exposure (β_st). Default is
+  Numeric. Interaction between time and exposure (beta_st). Default is
   -0.5.
 
 - beta_t_z_interaction:
@@ -65,7 +65,7 @@ generate_data_schild_2019_supp(
 
 - error_sd:
 
-  Numeric. Standard deviation of measurement error (σ_e). Default is
+  Numeric. Standard deviation of measurement error (sigma_e). Default is
   sqrt(12.25) = 3.5.
 
 - x_prevalence:
@@ -75,17 +75,17 @@ generate_data_schild_2019_supp(
 
 - rand_intercept_sd:
 
-  Numeric. Standard deviation of random intercept (σ₀). Default is
+  Numeric. Standard deviation of random intercept (sigma_0). Default is
   sqrt(81) = 9.
 
 - rand_slope_sd:
 
-  Numeric. Standard deviation of random slope (σ₁). Default is
+  Numeric. Standard deviation of random slope (sigma_1). Default is
   sqrt(1.56) = 1.25.
 
 - rand_eff_corr:
 
-  Numeric. Correlation between random intercept and slope (ρ). Must be
+  Numeric. Correlation between random intercept and slope (rho). Must be
   between -1 and 1. Default is 0.
 
 - gamma0:

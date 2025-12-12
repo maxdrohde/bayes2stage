@@ -17,5 +17,5 @@
   [`generate_data()`](https://maxdrohde.github.io/bayes2stage/reference/generate_data.md)
   supporting multiple covariate distributions.
 - Added package vignette with complete workflow example.
-- Legacy NIMBLE-based fitting available via
-  [`fit_model()`](https://maxdrohde.github.io/bayes2stage/reference/fit_model.md).
+- Archived NIMBLE-based fitting code (available in `archived/`
+  directory).

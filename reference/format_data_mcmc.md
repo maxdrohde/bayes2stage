@@ -1,6 +1,6 @@
-# Format the simulated data for Stan / NIMBLE
+# Format the simulated data for Stan
 
-Format the simulated data for Stan / NIMBLE
+Format the simulated data for Stan
 
 ## Usage
 
