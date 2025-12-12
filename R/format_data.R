@@ -1,4 +1,4 @@
-#' Format the simulated data for Stan / NIMBLE
+#' Format the simulated data for Stan
 #'
 #' @param data Dataset to use
 #' @param main_model_covariates Character vector of column names for covariates in the main model

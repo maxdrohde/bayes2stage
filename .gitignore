@@ -27,3 +27,18 @@ vignettes/*_files/
 # pkgdown
 docs/
 docs
+
+# Generated HTML from Rmd
+README.html
+
+# Development scripts (not part of package)
+scripts/
+
+# Archived code (not part of package)
+archived/
+
+# Compiled binaries for centered parameterization models
+src/stan/mixed_effects_imputation_bernoulli_centered
+src/stan/mixed_effects_imputation_beta_binomial_centered
+src/stan/mixed_effects_imputation_negative_binomial_centered
+src/stan/mixed_effects_imputation_normal_centered

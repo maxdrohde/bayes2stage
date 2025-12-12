@@ -7,7 +7,7 @@
 mcmc_forest(mcmc_output)
 }
 \arguments{
-\item{mcmc_output}{MCMC output object (e.g., from fit_model)}
+\item{mcmc_output}{MCMC output object}
 }
 \value{
 A forest plot of parameter estimates

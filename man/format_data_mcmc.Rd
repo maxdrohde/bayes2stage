@@ -2,7 +2,7 @@
 % Please edit documentation in R/format_data.R
 \name{format_data_mcmc}
 \alias{format_data_mcmc}
-\title{Format the simulated data for Stan / NIMBLE}
+\title{Format the simulated data for Stan}
 \usage{
 format_data_mcmc(
   data,
@@ -27,5 +27,5 @@ for bounded count data, or "negative_binomial" for unbounded count data}
 A list suitable for input to MCMC software
 }
 \description{
-Format the simulated data for Stan / NIMBLE
+Format the simulated data for Stan
 }

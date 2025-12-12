@@ -96,8 +96,8 @@ fit_acml_ods <- function(ods_df,
       "log_sigma_main"),
     mean = est,
     sd = se,
-    q5 = est - z*se,
-    q95 = est + z*se
+    `2.5%` = est - z*se,
+    `97.5%` = est + z*se
   )
 
   return(ci_est)

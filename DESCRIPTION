@@ -9,14 +9,14 @@ Description: Tools for designing and analyzing two-stage studies with
     BLUP-dependent sampling (BDS) designs where expensive covariates are
     measured on a subset of subjects. Bayesian model fitting uses 'Stan' via
     the 'instantiate' package for mixed effects models with imputation.
-    Also provides ascertainment-corrected maximum likelihood (ACML) estimation
-    and legacy support for 'NIMBLE'-based fitting.
+    Also provides ascertainment-corrected maximum likelihood (ACML) estimation.
 License: MIT + file LICENSE
-URL: https://github.com/maxdrohde/bayes2stage, https://maxdrohde.github.io/bayes2stage, https://maxdrohde.github.io/bayes2stage/
+URL: https://github.com/maxdrohde/bayes2stage, https://maxdrohde.github.io/bayes2stage/
 BugReports: https://github.com/maxdrohde/bayes2stage/issues
 Depends:
     R (>= 4.1.0)
 Imports:
+    cli,
     data.table,
     dplyr,
     extraDistr,
@@ -27,13 +27,10 @@ Imports:
     MASS,
     MCMCvis,
     mvtnorm,
-    nimble,
-    nimbleEcology,
-    nimbleMacros,
     numDeriv,
     patchwork,
+    posterior,
     purrr,
-    rlang,
     stats,
     tibble
 Remotes:

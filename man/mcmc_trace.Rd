@@ -7,7 +7,7 @@
 mcmc_trace(mcmc_output, print_to_pdf = FALSE)
 }
 \arguments{
-\item{mcmc_output}{MCMC output object (e.g., from fit_model)}
+\item{mcmc_output}{MCMC output object}
 
 \item{print_to_pdf}{Logical; if TRUE, saves trace plots to a PDF file}
 }

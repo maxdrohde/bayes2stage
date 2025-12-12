@@ -7,7 +7,7 @@
 mcmc_summary(mcmc_output, dataset_id)
 }
 \arguments{
-\item{mcmc_output}{MCMC output object (e.g., from fit_model)}
+\item{mcmc_output}{MCMC output object}
 
 \item{dataset_id}{A character string identifying the dataset (added as a column)}
 }
@@ -16,5 +16,6 @@ A data frame with summary statistics for each parameter
 }
 \description{
 A wrapper around MCMCvis::MCMCsummary to extract summary statistics from
-MCMC samples.
+MCMC samples. For CmdStanR fits, also extracts HMC diagnostics (divergent
+transitions, max treedepth exceeded, E-BFMI).
 }

@@ -138,10 +138,6 @@ acml_results <- fit_acml_ods(
 )
 ```
 
-### NIMBLE-based Bayesian fitting
-
-Legacy support via `fit_model()` using the NIMBLE probabilistic programming framework.
-
 ## Key Functions
 
 | Function | Purpose |

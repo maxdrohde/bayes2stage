@@ -4,24 +4,24 @@
 #' @param N Integer. Total number of subjects in the cohort. Default is 2000.
 #' @param Ms Integer vector. Possible numbers of observations per subject,
 #'   sampled uniformly. Default is c(4, 5, 6).
-#' @param alpha_main Numeric. Fixed intercept (β₀). Default is 75.
-#' @param beta_x Numeric. Main effect of binary exposure X (β_s). Default is -0.5.
-#' @param beta_z Numeric. Effect of continuous confounder Z (β_c). Default is -2.
-#' @param beta_t Numeric. Fixed time effect (β_t). Default is -1.
+#' @param alpha_main Numeric. Fixed intercept (beta_0). Default is 75.
+#' @param beta_x Numeric. Main effect of binary exposure X (beta_s). Default is -0.5.
+#' @param beta_z Numeric. Effect of continuous confounder Z (beta_c). Default is -2.
+#' @param beta_t Numeric. Fixed time effect (beta_t). Default is -1.
 #' @param beta_t_x_interaction Numeric. Interaction between time and exposure
-#'   (β_st). Default is -0.5.
+#'   (beta_st). Default is -0.5.
 #' @param beta_t_z_interaction Numeric. Interaction between time and confounder.
 #'   Default is 0.
-#' @param error_sd Numeric. Standard deviation of measurement error (σ_e).
+#' @param error_sd Numeric. Standard deviation of measurement error (sigma_e).
 #'   Default is sqrt(12.25) = 3.5.
 #' @param x_prevalence Numeric. Prevalence of binary exposure X. Must be between
 #'   0 and 1. Default is 0.25.
-#' @param rand_intercept_sd Numeric. Standard deviation of random intercept (σ₀).
+#' @param rand_intercept_sd Numeric. Standard deviation of random intercept (sigma_0).
 #'   Default is sqrt(81) = 9.
-#' @param rand_slope_sd Numeric. Standard deviation of random slope (σ₁).
+#' @param rand_slope_sd Numeric. Standard deviation of random slope (sigma_1).
 #'   Default is sqrt(1.56) = 1.25.
 #' @param rand_eff_corr Numeric. Correlation between random intercept and slope
-#'   (ρ). Must be between -1 and 1. Default is 0.
+#'   (rho). Must be between -1 and 1. Default is 0.
 #' @param gamma0 Numeric. Intercept for confounder Z generation. Default is 0.25.
 #' @param gamma1 Numeric. Linear coefficient for X in Z generation. Default is 0.5.
 #' @param gamma2 Numeric. Quadratic coefficient for X in Z generation. Default is 0.

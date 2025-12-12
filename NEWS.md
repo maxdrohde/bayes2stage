@@ -6,4 +6,4 @@
 * Ascertainment-corrected maximum likelihood estimation via `fit_acml_ods()`.
 * Data simulation with `generate_data()` supporting multiple covariate distributions.
 * Added package vignette with complete workflow example.
-* Legacy NIMBLE-based fitting available via `fit_model()`.
+* Archived NIMBLE-based fitting code (available in `archived/` directory).

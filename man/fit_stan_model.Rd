@@ -10,6 +10,7 @@ fit_stan_model(
   imputation_model_covariates,
   imputation_distribution = c("normal", "bernoulli", "beta_binomial",
     "negative_binomial"),
+  parameterization = c("noncentered", "centered"),
   n_chains = 4,
   iter_warmup = 1000,
   iter_sampling = 1000,
@@ -29,6 +30,11 @@ fit_stan_model(
 "normal" for continuous x, "bernoulli" for binary x, "beta_binomial"
 for bounded count data, or "negative_binomial" for unbounded count data
 (default: "normal")}
+
+\item{parameterization}{Parameterization for random effects: "noncentered" (default)
+works better with weakly informative data (small N), while "centered" works
+better with highly informative data (large N). Available for all imputation
+distributions.}
 
 \item{n_chains}{Number of MCMC chains (default: 4)}
 

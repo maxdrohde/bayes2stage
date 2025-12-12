@@ -2,6 +2,7 @@
 ^\.Rproj\.user$
 ^LICENSE\.md$
 ^README\.Rmd$
+^README\.html$
 ^\.DS_Store$
 ^\.Rhistory$
 ^\.\.Rcheck$
@@ -12,8 +13,12 @@
 ^cleanup$
 ^cleanup\.win$
 ^analysis$
+^archived$
+^scripts$
+^results$
 ^vignettes/.*_files$
 ^_pkgdown\.yml$
 ^docs$
 ^pkgdown$
 ^\.github$
+^\.claude$

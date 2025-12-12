@@ -29,7 +29,7 @@ cantor_seed <- function(i, j) {
 #'
 #' A wrapper around MCMCvis::MCMCplot to create forest plots of MCMC samples.
 #'
-#' @param mcmc_output MCMC output object (e.g., from fit_model)
+#' @param mcmc_output MCMC output object
 #' @return A forest plot of parameter estimates
 #' @export
 mcmc_forest <- function(mcmc_output){
@@ -40,7 +40,7 @@ mcmc_forest <- function(mcmc_output){
 #'
 #' A wrapper around MCMCvis::MCMCtrace to create trace plots of MCMC samples.
 #'
-#' @param mcmc_output MCMC output object (e.g., from fit_model)
+#' @param mcmc_output MCMC output object
 #' @param print_to_pdf Logical; if TRUE, saves trace plots to a PDF file
 #' @return Trace plots of MCMC samples
 #' @export
@@ -55,9 +55,10 @@ mcmc_trace <- function(mcmc_output,
 #' Extract MCMC summary statistics
 #'
 #' A wrapper around MCMCvis::MCMCsummary to extract summary statistics from
-#' MCMC samples.
+#' MCMC samples. For CmdStanR fits, also extracts HMC diagnostics (divergent
+#' transitions, max treedepth exceeded, E-BFMI).
 #'
-#' @param mcmc_output MCMC output object (e.g., from fit_model)
+#' @param mcmc_output MCMC output object
 #' @param dataset_id A character string identifying the dataset (added as a column)
 #' @return A data frame with summary statistics for each parameter
 #' @export
@@ -71,6 +72,19 @@ mcmc_summary <- function(mcmc_output,
     tibble::rownames_to_column(var = "parameter")
 
   out$dataset_id <- dataset_id
+
+
+  # Extract HMC diagnostics if this is a CmdStanMCMC object
+  if (inherits(mcmc_output, "CmdStanMCMC")) {
+    diag <- mcmc_output$diagnostic_summary()
+    out$divergent_transitions <- sum(diag$num_divergent)
+    out$max_treedepth_exceeded <- sum(diag$num_max_treedepth)
+    out$ebfmi_min <- min(diag$ebfmi)
+  } else {
+    out$divergent_transitions <- NA_integer_
+    out$max_treedepth_exceeded <- NA_integer_
+    out$ebfmi_min <- NA_real_
+  }
 
   return(out)
 }

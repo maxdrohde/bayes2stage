@@ -9,6 +9,10 @@
 #'   "normal" for continuous x, "bernoulli" for binary x, "beta_binomial"
 #'   for bounded count data, or "negative_binomial" for unbounded count data
 #'   (default: "normal")
+#' @param parameterization Parameterization for random effects: "noncentered" (default)
+#'   works better with weakly informative data (small N), while "centered" works
+#'   better with highly informative data (large N). Available for all imputation
+#'   distributions.
 #' @param n_chains Number of MCMC chains (default: 4)
 #' @param iter_warmup Number of warmup iterations per chain (default: 1000)
 #' @param iter_sampling Number of sampling iterations per chain (default: 1000)
@@ -24,6 +28,7 @@ fit_stan_model <- function(data,
                                                        "bernoulli",
                                                        "beta_binomial",
                                                        "negative_binomial"),
+                           parameterization = c("noncentered", "centered"),
                            n_chains = 4,
                            iter_warmup = 1000,
                            iter_sampling = 1000,
@@ -32,6 +37,8 @@ fit_stan_model <- function(data,
                            parallel_chains = 1L) {
 
   imputation_distribution <- match.arg(imputation_distribution)
+  parameterization <- match.arg(parameterization)
+
 
   data_list <- format_data_mcmc(data,
                                 main_model_covariates = main_model_covariates,
@@ -39,6 +46,9 @@ fit_stan_model <- function(data,
                                 imputation_distribution = imputation_distribution)
 
   model_name <- paste0("mixed_effects_imputation_", imputation_distribution)
+  if (parameterization == "centered") {
+    model_name <- paste0(model_name, "_centered")
+  }
 
   mod <- instantiate::stan_package_model(
     name = model_name,
