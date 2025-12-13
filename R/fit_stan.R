@@ -70,15 +70,23 @@ fit_stan_model <- function(data,
 
   init <- NULL
   if (use_pathfinder_init) {
-    cli::cli_alert_info("Running Pathfinder for initialization...")
-    pathfinder_fit <- mod$pathfinder(
-      data = data_list,
-      seed = seed,
-      num_paths = pathfinder_num_paths,
-      num_threads = parallel_chains
+    init <- tryCatch(
+      {
+        cli::cli_alert_info("Running Pathfinder for initialization...")
+        pathfinder_fit <- mod$pathfinder(
+          data = data_list,
+          seed = seed,
+          num_paths = pathfinder_num_paths,
+          num_threads = parallel_chains
+        )
+        cli::cli_alert_success("Pathfinder complete. Initializing MCMC chains.")
+        pathfinder_fit
+      },
+      error = function(e) {
+        cli::cli_warn("Pathfinder failed: {e$message}. Using default initialization.")
+        return(NULL)
+      }
     )
-    init <- pathfinder_fit
-    cli::cli_alert_success("Pathfinder complete. Initializing MCMC chains.")
   }
 
   fit <- mod$sample(
