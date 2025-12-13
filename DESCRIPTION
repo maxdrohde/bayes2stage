@@ -27,6 +27,7 @@ Imports:
     lme4,
     MASS,
     MCMCvis,
+    mirai,
     mvtnorm,
     numDeriv,
     patchwork,
