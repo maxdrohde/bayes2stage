@@ -7,12 +7,10 @@
 ..Rcheck
 *.Rcheck
 
-# Compiled Stan binaries (files without extension in src/stan/)
-src/stan/mixed_effects_imputation_bernoulli
-src/stan/mixed_effects_imputation_beta_binomial
-src/stan/mixed_effects_imputation_negative_binomial
-src/stan/mixed_effects_imputation_normal
-src/stan/mixed_effects_imputation_negative_binomial_optimized
+# Compiled Stan binaries (executables without .stan extension)
+# These are compiled during package installation
+src/stan/*
+!src/stan/*.stan
 
 # Compiled symbols
 src/symbols.rds
@@ -36,9 +34,3 @@ scripts/
 
 # Archived code (not part of package)
 archived/
-
-# Compiled binaries for centered parameterization models
-src/stan/mixed_effects_imputation_bernoulli_centered
-src/stan/mixed_effects_imputation_beta_binomial_centered
-src/stan/mixed_effects_imputation_negative_binomial_centered
-src/stan/mixed_effects_imputation_normal_centered
