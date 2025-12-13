@@ -55,11 +55,12 @@ fit_stan_model <- function(data,
                                 imputation_model_covariates = imputation_model_covariates,
                                 imputation_distribution = imputation_distribution)
 
-  model_name <- paste0("mixed_effects_imputation_", imputation_distribution)
+
+  model_name <- glue::glue("mixed_effects_imputation_{imputation_distribution}")
   if (parameterization == "centered") {
-    model_name <- paste0(model_name, "_centered")
+    model_name <- glue::glue("{model_name}_centered")
   } else if (parameterization == "marginalized") {
-    model_name <- paste0(model_name, "_marginalized")
+    model_name <- glue::glue("{model_name}_marginalized")
   }
 
   mod <- instantiate::stan_package_model(
