@@ -18,11 +18,15 @@ is_positive_integer <- function(x) {
 #' cantor_seed(5, 10)
 #' @export
 cantor_seed <- function(i, j) {
-  stopifnot(i >= 1L, j >= 1L)
+  if (i < 1L || j < 1L) {
+    cli::cli_abort("{.arg i} and {.arg j} must be >= 1.")
+  }
   k <- i + j
   seed <- as.integer((k * (k + 1L)) %/% 2L + j)
-  if (seed > .Machine$integer.max) stop("seed overflow")
-  seed
+  if (seed > .Machine$integer.max) {
+    cli::cli_abort("Seed overflow: generated seed exceeds integer max.")
+  }
+  return(seed)
 }
 
 #' Create a forest plot of MCMC output
@@ -99,10 +103,8 @@ mcmc_summary <- function(mcmc_output,
 #' @export
 check_cols <- function(data, required_cols) {
   missing <- setdiff(required_cols, names(data))
-  if (length(missing)) {
-    stop("`data` is missing required column",
-         if (length(missing) > 1) "s" else "", ": ",
-         paste(missing, collapse = ", "), call. = FALSE)
+  if (length(missing) > 0L) {
+    cli::cli_abort("{.arg data} is missing required column{?s}: {.val {missing}}.")
   }
   invisible(TRUE)
 }

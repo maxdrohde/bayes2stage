@@ -16,7 +16,7 @@ get_ods <- function(data,
     lms[, `:=`(target = lm_coef[[1]][["t"]]), by = id]
     out <- lms[, .(id, target)]
   } else {
-    stop("sampling_type must be 'intercept' or 'slope'")
+    cli::cli_abort("{.arg sampling_type} must be {.val intercept} or {.val slope}.")
   }
 
   out$sampling_type <- sampling_type
@@ -45,10 +45,18 @@ ods_design <- function(data,
                        prop_middle,
                        prop_low){
 
-  stopifnot("Choose either 'intercept' or 'slope' as `sampling_type`" = sampling_type %in% c("intercept", "slope"))
-  stopifnot("Strata proportions must sum to 1" = prop_high + prop_middle + prop_low == 1)
-  stopifnot("x must be a variable in the data" = ("x" %in% names(data)))
-  stopifnot("Number of subjects sampled must be a whole number" = is_whole_number(n_sampled))
+  if (!(sampling_type %in% c("intercept", "slope"))) {
+    cli::cli_abort("{.arg sampling_type} must be {.val intercept} or {.val slope}.")
+  }
+  if (prop_high + prop_middle + prop_low != 1) {
+    cli::cli_abort("Strata proportions must sum to 1.")
+  }
+  if (!("x" %in% names(data))) {
+    cli::cli_abort("{.var x} must be a variable in {.arg data}.")
+  }
+  if (!is_whole_number(n_sampled)) {
+    cli::cli_abort("{.arg n_sampled} must be a whole number.")
+  }
 
   ods <- get_ods(data, sampling_type)
 
@@ -68,8 +76,9 @@ ods_design <- function(data,
 
   # Check sizes
   sizes <- c(size_high, size_middle, size_low)
-  stopifnot("Sample sizes must be positive whole numbers" =
-              all(is_positive_integer(sizes)))
+  if (!all(is_positive_integer(sizes))) {
+    cli::cli_abort("Sample sizes must be positive whole numbers.")
+  }
 
   # Convert sizes to integer
   size_high <- as.integer(size_high)

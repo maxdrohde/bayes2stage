@@ -4,12 +4,11 @@ get_blups <- function(data,
                       fixed_effects_formula,
                       sampling_type){
 
-  # Check that the required variables are in the data
-  stopifnot("t must be a variable in the data" = ("t" %in% names(data)))
-  stopifnot("id must be a variable in the data" = ("id" %in% names(data)))
+  check_cols(data, c("t", "id"))
 
-  # Check that the model is specified correctly
-  stopifnot("t must be a variable in the model" = ("t" %in% all.vars(fixed_effects_formula)))
+  if (!("t" %in% all.vars(fixed_effects_formula))) {
+    cli::cli_abort("{.var t} must be in {.arg fixed_effects_formula}.")
+  }
 
   # Add the random-effects to the user supplied fixed-effects formula
   lmer_formula <-
@@ -37,7 +36,7 @@ get_blups <- function(data,
       dplyr::select(id = grp,
                     target = condval)
   } else {
-    stop("sampling_type must be 'intercept' or 'slope'")
+    cli::cli_abort("{.arg sampling_type} must be {.val intercept} or {.val slope}.")
   }
 
   out$sampling_type <- sampling_type
@@ -69,10 +68,16 @@ bds_design <- function(data,
                        prop_middle,
                        prop_low){
 
-  stopifnot("Choose either 'intercept' or 'slope' as `sampling_type`" = sampling_type %in% c("intercept", "slope"))
-  stopifnot("Strata proportions must sum to 1" = prop_high + prop_middle + prop_low == 1)
-  stopifnot("x must be a variable in the data" = ("x" %in% names(data)))
-  stopifnot("Number of subjects sampled must be a whole number" = is_positive_integer(n_sampled))
+  if (!(sampling_type %in% c("intercept", "slope"))) {
+    cli::cli_abort("{.arg sampling_type} must be {.val intercept} or {.val slope}.")
+  }
+  if (prop_high + prop_middle + prop_low != 1) {
+    cli::cli_abort("Strata proportions must sum to 1.")
+  }
+  check_cols(data, "x")
+  if (!is_positive_integer(n_sampled)) {
+    cli::cli_abort("{.arg n_sampled} must be a positive integer.")
+  }
 
   blups <-
     get_blups(data,
@@ -95,8 +100,9 @@ bds_design <- function(data,
 
   # Check sizes
   sizes <- c(size_high, size_middle, size_low)
-  stopifnot("Sample sizes must be positive whole numbers" =
-              all(is_positive_integer(sizes)))
+  if (!all(is_positive_integer(sizes))) {
+    cli::cli_abort("Sample sizes must be positive whole numbers.")
+  }
 
   # Convert sizes to integer
   size_high <- as.integer(size_high)

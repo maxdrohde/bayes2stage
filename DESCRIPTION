@@ -16,6 +16,7 @@ BugReports: https://github.com/maxdrohde/bayes2stage/issues
 Depends:
     R (>= 4.1.0)
 Imports:
+    bayesplot,
     cli,
     data.table,
     dplyr,

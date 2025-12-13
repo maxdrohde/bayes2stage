@@ -59,28 +59,28 @@ generate_data_schild_2019_supp <-
 
       corr <- matrix(c(1, rand_eff_corr,
                        rand_eff_corr, 1),
-                     nrow = 2)
+                     nrow = 2L)
 
       sigma <- sds %*% corr %*% sds
 
       rand_effs <-
-        MASS::mvrnorm(n = 1,
-                      mu = c(0,0),
+        MASS::mvrnorm(n = 1L,
+                      mu = c(0, 0),
                       Sigma = sigma)
 
       # Generate covariate values
-      M <- sample(Ms, 1)
-      t <- 0:(M-1)
+      M <- sample(Ms, 1L)
+      t <- 0L:(M - 1L)
 
       # X is binary with p = `x_prevalence`
-      x <- stats::rbinom(n = 1,
-                         size = 1,
+      x <- stats::rbinom(n = 1L,
+                         size = 1L,
                          prob = x_prevalence)
 
       z <- gamma0 +
            gamma1*x +
            gamma2*x^2 +
-           stats::rnorm(n = 1, mean = 0, sd = gamma_sd)
+           stats::rnorm(n = 1L, mean = 0, sd = gamma_sd)
 
       # Generate outcome
       y <-
@@ -104,7 +104,8 @@ generate_data_schild_2019_supp <-
     }
 
     # Merge all the data frames together
-    df <- do.call(rbind, records)
+    df <- data.table::rbindlist(records) |>
+        as.data.frame()
 
     return(df)
   }

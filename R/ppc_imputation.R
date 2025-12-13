@@ -14,11 +14,10 @@ NULL
 #' @keywords internal
 get_ppc_data <- function(data, imputation_covariates) {
   subject_data <- data |>
-    dplyr::group_by(id) |>
     dplyr::summarize(
       x = dplyr::first(x),
       dplyr::across(dplyr::all_of(imputation_covariates), dplyr::first),
-      .groups = "drop"
+      .by = id
     ) |>
     dplyr::filter(!is.na(x)) |>
     dplyr::arrange(id)
@@ -96,7 +95,7 @@ ppc_imputation_density <- function(fit, data, imputation_covariates, n_draws = 1
   sigma_imp <- draws$sigma_imputation[draw_idx]
   gamma_mat <- extract_gamma_matrix(draws, draw_idx)
 
-  x_rep_list <- lapply(seq_along(draw_idx), function(m) {
+  x_rep_list <- lapply(seq_along(draw_idx), \(m) {
     eta <- alpha_imp[m]
     if (ncol(Z_obs) > 0) {
       eta <- eta + as.vector(Z_obs %*% gamma_mat[m, ])
@@ -161,7 +160,7 @@ ppc_imputation_stat <- function(
   sigma_imp <- draws$sigma_imputation[draw_idx]
   gamma_mat <- extract_gamma_matrix(draws, draw_idx)
 
-  T_rep <- sapply(seq_along(draw_idx), function(m) {
+  T_rep <- sapply(seq_along(draw_idx), \(m) {
     eta <- alpha_imp[m]
     if (ncol(Z_obs) > 0) {
       eta <- eta + as.vector(Z_obs %*% gamma_mat[m, ])
@@ -459,13 +458,12 @@ ppc_imputation_bernoulli <- function(fit, data, imputation_covariates, n_draws =
     dplyr::mutate(
       bin = cut(prob, breaks = breaks, include.lowest = TRUE)
     ) |>
-    dplyr::group_by(bin) |>
     dplyr::summarize(
       n = dplyr::n(),
       observed = mean(x),
       predicted = mean(prob),
       se = sqrt(observed * (1 - observed) / n),
-      .groups = "drop"
+      .by = bin
     ) |>
     dplyr::filter(!is.na(bin))
 
@@ -492,15 +490,15 @@ ppc_imputation_bernoulli <- function(fit, data, imputation_covariates, n_draws =
   brier <- mean((pred_prob - x_obs)^2)
 
   thresholds <- seq(0, 1, by = 0.01)
-  roc_data <- lapply(thresholds, function(thresh) {
+  roc_data <- lapply(thresholds, \(thresh) {
     pred <- as.integer(pred_prob >= thresh)
-    tp <- sum(pred == 1 & x_obs == 1)
-    fp <- sum(pred == 1 & x_obs == 0)
-    tn <- sum(pred == 0 & x_obs == 0)
-    fn <- sum(pred == 0 & x_obs == 1)
+    tp <- sum(pred == 1L & x_obs == 1L)
+    fp <- sum(pred == 1L & x_obs == 0L)
+    tn <- sum(pred == 0L & x_obs == 0L)
+    fn <- sum(pred == 0L & x_obs == 1L)
 
-    tpr <- if ((tp + fn) > 0) tp / (tp + fn) else 0
-    fpr <- if ((fp + tn) > 0) fp / (fp + tn) else 0
+    tpr <- if ((tp + fn) > 0L) tp / (tp + fn) else 0
+    fpr <- if ((fp + tn) > 0L) fp / (fp + tn) else 0
 
     data.frame(threshold = thresh, tpr = tpr, fpr = fpr)
   }) |>
@@ -594,7 +592,7 @@ ppc_imputation_count <- function(fit, data, imputation_covariates, n_draws = 500
   obs_var <- stats::var(x_obs)
   obs_dispersion <- obs_var / obs_mean
 
-  rep_dispersions <- sapply(x_rep_list, function(x) stats::var(x) / mean(x))
+  rep_dispersions <- sapply(x_rep_list, \(x) stats::var(x) / mean(x))
 
   p_dispersion <- ggplot2::ggplot(
     data.frame(d = rep_dispersions),
@@ -643,8 +641,7 @@ ppc_imputation_beta_binomial <- function(fit, data, imputation_covariates, n_dra
   n_obs <- length(x_obs)
 
   n_trials <- data |>
-    dplyr::group_by(id) |>
-    dplyr::summarize(n_trials = dplyr::first(n_trials), .groups = "drop") |>
+    dplyr::summarize(n_trials = dplyr::first(n_trials), .by = id) |>
     dplyr::filter(id %in% ppc_data$id) |>
     dplyr::arrange(match(id, ppc_data$id)) |>
     dplyr::pull(n_trials)
@@ -700,7 +697,7 @@ ppc_imputation_beta_binomial <- function(fit, data, imputation_covariates, n_dra
     ggplot2::theme_minimal()
 
   prop_obs <- x_obs / n_trials
-  prop_rep <- lapply(x_rep_list, function(x) x / n_trials)
+  prop_rep <- lapply(x_rep_list, \(x) x / n_trials)
 
   obs_prop_var <- stats::var(prop_obs)
   rep_prop_vars <- sapply(prop_rep, stats::var)

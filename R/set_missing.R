@@ -6,9 +6,7 @@
 #' @export
 set_missing <- function(data, selected_ids){
 
-  # Check if required variables are present
-  stopifnot("id must be a variable in the data" = ("id" %in% names(data)))
-  stopifnot("x must be a variable in the data" = ("x" %in% names(data)))
+  check_cols(data, c("id", "x"))
 
   # Create indicator for being selected
   data$selected <- data$id %in% selected_ids

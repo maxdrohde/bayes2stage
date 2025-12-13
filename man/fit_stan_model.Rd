@@ -10,10 +10,12 @@ fit_stan_model(
   imputation_model_covariates,
   imputation_distribution = c("normal", "bernoulli", "beta_binomial",
     "negative_binomial"),
-  parameterization = c("noncentered", "centered"),
-  n_chains = 4,
-  iter_warmup = 1000,
-  iter_sampling = 1000,
+  parameterization = c("noncentered", "centered", "marginalized"),
+  use_pathfinder_init = FALSE,
+  pathfinder_num_paths = 4L,
+  n_chains = 4L,
+  iter_warmup = 1000L,
+  iter_sampling = 1000L,
   adapt_delta = 0.8,
   seed = 777L,
   parallel_chains = 1L
@@ -31,10 +33,21 @@ fit_stan_model(
 for bounded count data, or "negative_binomial" for unbounded count data
 (default: "normal")}
 
-\item{parameterization}{Parameterization for random effects: "noncentered" (default)
-works better with weakly informative data (small N), while "centered" works
-better with highly informative data (large N). Available for all imputation
-distributions.}
+\item{parameterization}{Parameterization for random effects:
+\itemize{
+\item "noncentered" (default): Works better with weakly informative data (small N)
+\item "centered": Works better with highly informative data (large N)
+\item "marginalized": Integrates out random effects and missing x analytically.
+Eliminates funnel geometry but has O(G * n_g^3) likelihood cost per subject.
+Best for datasets with sampling issues. Available for all distributions.
+Note: Beta-binomial marginalized requires all subjects have the same n_trials.
+}}
+
+\item{use_pathfinder_init}{Logical; if TRUE, use Pathfinder variational inference
+to initialize MCMC chains. This can dramatically improve sampling efficiency
+for complex models with many latent parameters (default: FALSE)}
+
+\item{pathfinder_num_paths}{Number of Pathfinder paths to run (default: 4, one per chain)}
 
 \item{n_chains}{Number of MCMC chains (default: 4)}
 

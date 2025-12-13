@@ -18,7 +18,7 @@ data {
 
   array[G_obs] int<lower=0> x_obs;
   
-  int<lower=max(x_obs)> max_x;
+  int<lower=max(x_obs)> x_max;
 
   // IMPORTANT: Data must be sorted by ID for this optimization to work efficiently
   array[N] int<lower=1, upper=G> id;
@@ -46,9 +46,9 @@ transformed data {
   }
 
   // Precompute sequence for vectorization
-  vector[max_x + 1] x_seq;
-  vector[max_x + 1] x_seq_sq;
-  for (i in 0:max_x) {
+  vector[x_max + 1] x_seq;
+  vector[x_max + 1] x_seq_sq;
+  for (i in 0:x_max) {
     x_seq[i+1] = i;
     x_seq_sq[i+1] = square(i);
   }
@@ -160,22 +160,22 @@ model {
     // log P(0) = phi * log(phi / (mu + phi))
     // P(k) = P(k-1) * (k - 1 + phi) / k * (mu / (mu + phi))
     
-    vector[max_x + 1] log_probs_nb;
+    vector[x_max + 1] log_probs_nb;
     real log_r_mu = log(mu / (mu + phi));
     
     // Base case (x=0)
     log_probs_nb[1] = phi * log(phi / (mu + phi)); 
 
-    // Recurrence loop (x=1 to max_x)
-    for (i in 1:max_x) {
+    // Recurrence loop (x=1 to x_max)
+    for (i in 1:x_max) {
        log_probs_nb[i+1] = log_probs_nb[i] + log(i - 1.0 + phi) - log(i) + log_r_mu;
     }
 
     // 2. Calculate Log-Likelihood for Y (Vectorized)
     // SS = A - 2Bx + Cx^2
-    vector[max_x + 1] SS_vec = A_vec[g] - 2 * B_vec[g] * x_seq + C_vec[g] * x_seq_sq;
+    vector[x_max + 1] SS_vec = A_vec[g] - 2 * B_vec[g] * x_seq + C_vec[g] * x_seq_sq;
     
-    vector[max_x + 1] lp_y = -0.5 * len[g] * log_2pi_sigma2 - SS_vec * inv_2sigma2;
+    vector[x_max + 1] lp_y = -0.5 * len[g] * log_2pi_sigma2 - SS_vec * inv_2sigma2;
 
     // 3. Combine and marginalize
     target += log_sum_exp(log_probs_nb + lp_y);

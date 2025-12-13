@@ -26,9 +26,33 @@ bin_stan <- file.path(bin, "stan")
 fs::dir_copy(path = "stan", new_path = bin_stan)
 callr::r(
   func = function(bin_stan) {
-    instantiate::stan_package_compile(
-      models = instantiate::stan_package_model_files(path = bin_stan)
-    )
+    models <- instantiate::stan_package_model_files(path = bin_stan)
+    cmdstan_path <- cmdstanr::cmdstan_path()
+
+    # Compile first model sequentially to build precompiled header
+    message(sprintf("Compiling %d Stan models...", length(models)))
+    message("Building precompiled header with first model...")
+    cmdstanr::cmdstan_model(models[[1]], stanc_options = list("O1"), quiet = TRUE)
+
+    if (length(models) > 1L) {
+      remaining <- models[-1]
+      n_workers <- min(parallel::detectCores() - 1L, length(remaining))
+      message(sprintf("Compiling remaining %d models in parallel using %d daemons...",
+                      length(remaining), n_workers))
+      mirai::daemons(n_workers)
+      purrr::walk(
+        remaining,
+        purrr::in_parallel(
+          \(m) {
+            options(cmdstanr_path = cmdstan_path)
+            cmdstanr::cmdstan_model(m, stanc_options = list("O1"), quiet = TRUE)
+          },
+          cmdstan_path = cmdstan_path
+        )
+      )
+      mirai::daemons(0)
+    }
+    message("Done compiling Stan models.")
   },
   args = list(bin_stan = bin_stan),
   show = TRUE,

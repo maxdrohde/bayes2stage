@@ -44,18 +44,17 @@ generate_data <-
            gamma0 = 1, gamma1 = 1, gamma2 = 0, gamma_sd = 2) {
 
     # Checks ###################################################################
-    stopifnot("X distribution not supported" = x_dist %in% c("normal",
-                                                             "poisson",
-                                                             "binomial",
-                                                             "negative_binomial",
-                                                             "beta_binomial"))
-
-    if (x_dist %in% c("binomial", "beta_binomial")) {
-      stopifnot("Must specify x_size for binomial or beta binomial distributions" = !is.null(x_size))
+    valid_dists <- c("normal", "poisson", "binomial", "negative_binomial", "beta_binomial")
+    if (!x_dist %in% valid_dists) {
+        cli::cli_abort("X distribution not supported. Must be one of: {.val {valid_dists}}")
     }
 
-    if (x_dist %in% c("negative_binomial", "beta_binomial")) {
-      stopifnot("Must specify x_disp_param for negative binomial and beta binomial distribution" = !is.null(x_disp_param))
+    if (x_dist %in% c("binomial", "beta_binomial") && is.null(x_size)) {
+        cli::cli_abort("Must specify {.arg x_size} for binomial or beta binomial distributions.")
+    }
+
+    if (x_dist %in% c("negative_binomial", "beta_binomial") && is.null(x_disp_param)) {
+        cli::cli_abort("Must specify {.arg x_disp_param} for negative binomial and beta binomial distributions.")
     }
     ############################################################################
 
@@ -68,17 +67,17 @@ generate_data <-
       # Generate subject specific random effects
       sds <- diag(c(rand_intercept_sd, rand_slope_sd))
       corr <- matrix(c(1, rand_eff_corr,
-                       rand_eff_corr, 1), nrow = 2)
+                       rand_eff_corr, 1), nrow = 2L)
       sigma <- sds %*% corr %*% sds
       rand_effs <-
-        MASS::mvrnorm(n = 1,
-                      mu = c(0,0),
+        MASS::mvrnorm(n = 1L,
+                      mu = c(0, 0),
                       Sigma = sigma)
 
       # Generate covariate values
-      t <- (0:(M-1)) / (M-1)
+      t <- (0L:(M - 1L)) / (M - 1L)
       # Z is standard normal
-      z <- stats::rnorm(n = 1, mean = 0, sd = 1)
+      z <- stats::rnorm(n = 1L, mean = 0, sd = 1)
 
       eta <-
         gamma0 +
@@ -88,11 +87,11 @@ generate_data <-
       x <-
         switch(
           x_dist,
-          normal = stats::rnorm(n = 1, mean = eta, sd = gamma_sd),
-          poisson = stats::rpois(n = 1, lambda = exp(eta)),
-          binomial = stats::rbinom(n = 1, size = x_size, prob = stats::plogis(eta)),
-          negative_binomial = stats::rnbinom(n = 1, mu = exp(eta), size = x_disp_param),
-          beta_binomial = extraDistr::rbbinom(n = 1,
+          normal = stats::rnorm(n = 1L, mean = eta, sd = gamma_sd),
+          poisson = stats::rpois(n = 1L, lambda = exp(eta)),
+          binomial = stats::rbinom(n = 1L, size = x_size, prob = stats::plogis(eta)),
+          negative_binomial = stats::rnbinom(n = 1L, mu = exp(eta), size = x_disp_param),
+          beta_binomial = extraDistr::rbbinom(n = 1L,
                                               size = x_size,
                                               alpha = x_disp_param * stats::plogis(eta),
                                               beta = x_disp_param * (1 - stats::plogis(eta)))
@@ -120,7 +119,8 @@ generate_data <-
     }
 
     # Merge all the data frames together
-    df <- do.call(rbind, records)
+    df <- data.table::rbindlist(records) |>
+        as.data.frame()
 
     return(df)
   }

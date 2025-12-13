@@ -81,17 +81,16 @@ format_data_mcmc <- function(data,
       len       = len
     )
 
-  # Add n_trials for beta_binomial model
+  # Add n_trials for beta_binomial model (array, same interface for standard and marginalized)
   if (imputation_distribution == "beta_binomial") {
     data_list$n_trials <- as.integer(id_df$n_trials)
   }
 
-  # Add max_x for negative_binomial model
+  # Add x_max for negative_binomial model (same name for standard and marginalized)
   if (imputation_distribution == "negative_binomial") {
     # Use 3x the max observed value or 100, whichever is larger
-    # This should be large enough for marginalization
     max_observed <- if (length(x_obs) > 0) max(x_obs) else 0
-    data_list$max_x <- as.integer(max(max_observed * 3, 100))
+    data_list$x_max <- as.integer(max(max_observed * 3, 100))
   }
 
   return(data_list)
