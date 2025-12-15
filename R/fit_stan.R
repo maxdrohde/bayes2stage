@@ -76,8 +76,7 @@ fit_stan_model <- function(data,
         pathfinder_fit <- mod$pathfinder(
           data = data_list,
           seed = seed,
-          num_paths = pathfinder_num_paths,
-          num_threads = parallel_chains
+          num_paths = pathfinder_num_paths
         )
         cli::cli_alert_success("Pathfinder complete. Initializing MCMC chains.")
         pathfinder_fit
