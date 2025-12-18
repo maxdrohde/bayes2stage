@@ -10,9 +10,7 @@ NULL
 #' Default key parameters for diagnostics
 #' @keywords internal
 default_key_params <- function() {
-    c("alpha_main", "beta_t", "beta_x", "beta_x_t_interaction",
-      "beta[1]", "alpha_imputation", "gamma[1]",
-      "sigma_main", "sigma_imputation", "sigma_re[1]", "sigma_re[2]")
+    get_key_parameters()
 }
 
 # =============================================================================

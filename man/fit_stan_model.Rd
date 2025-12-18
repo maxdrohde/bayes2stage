@@ -11,11 +11,16 @@ fit_stan_model(
   imputation_distribution = c("normal", "bernoulli", "beta_binomial",
     "negative_binomial"),
   parameterization = c("noncentered", "centered", "marginalized"),
+  inference_method = c("mcmc", "pathfinder", "laplace", "optimize"),
+  pathfinder_draws = 1000L,
+  pathfinder_num_paths = 4L,
+  laplace_draws = 1000L,
+  optimize_algorithm = c("lbfgs", "bfgs", "newton"),
+  optimize_iter = 2000L,
   use_pathfinder_init = FALSE,
-  pathfinder_num_paths,
-  n_chains,
-  iter_warmup,
-  iter_sampling,
+  n_chains = 4L,
+  iter_warmup = 1000L,
+  iter_sampling = 1000L,
   adapt_delta = 0.8,
   seed = 777L,
   parallel_chains = 1L
@@ -43,11 +48,34 @@ Best for datasets with sampling issues. Available for all distributions.
 Note: Beta-binomial marginalized requires all subjects have the same n_trials.
 }}
 
-\item{use_pathfinder_init}{Logical; if TRUE, use Pathfinder variational inference
-to initialize MCMC chains. This can dramatically improve sampling efficiency
-for complex models with many latent parameters (default: FALSE)}
+\item{inference_method}{Inference method to use:
+\itemize{
+\item "mcmc" (default): Full MCMC sampling via NUTS. Most accurate but slowest.
+\item "pathfinder": Variational inference via Pathfinder algorithm. Fast approximate
+inference with posterior draws. Good for initial exploration.
+\item "laplace": Laplace approximation. Finds posterior mode and approximates with
+Gaussian. Very fast with good accuracy for well-behaved posteriors.
+\item "optimize": Maximum a posteriori (MAP) point estimate only. Fastest but no
+uncertainty quantification. Returns CmdStanMLE object (no posterior draws).
+}}
 
-\item{pathfinder_num_paths}{Number of Pathfinder paths to run (default: 4, one per chain)}
+\item{pathfinder_draws}{Number of approximate posterior draws from Pathfinder
+(default: 1000L)}
+
+\item{pathfinder_num_paths}{Number of Pathfinder paths to run (default: 4L)}
+
+\item{laplace_draws}{Number of approximate posterior draws from Laplace
+(default: 1000L)}
+
+\item{optimize_algorithm}{Optimization algorithm for MAP estimation:
+"lbfgs" (default), "bfgs", or "newton"}
+
+\item{optimize_iter}{Maximum iterations for optimization (default: 2000L)}
+
+\item{use_pathfinder_init}{Logical; if TRUE, use Pathfinder variational inference
+to initialize MCMC chains. Only applies when \code{inference_method = "mcmc"}.
+This can dramatically improve sampling efficiency for complex models with
+many latent parameters (default: FALSE)}
 
 \item{n_chains}{Number of MCMC chains (default: 4)}
 
@@ -62,7 +90,10 @@ for complex models with many latent parameters (default: FALSE)}
 \item{parallel_chains}{Number of chains to run in parallel (default: 1L)}
 }
 \value{
-A CmdStanMCMC fit object
+A CmdStan fit object. Type depends on \code{inference_method}:
+CmdStanMCMC (mcmc), CmdStanPathfinder (pathfinder), CmdStanLaplace (laplace),
+or CmdStanMLE (optimize). All support \verb{$summary()}, but only mcmc/pathfinder/laplace
+support \verb{$draws()} for posterior samples.
 }
 \description{
 Fits a mixed effects model with imputation using Stan via the instantiate package.

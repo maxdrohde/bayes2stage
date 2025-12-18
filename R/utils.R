@@ -56,41 +56,107 @@ mcmc_trace <- function(mcmc_output,
 
 }
 
-#' Extract MCMC summary statistics
+#' Extract summary statistics from model fit objects
 #'
-#' A wrapper around MCMCvis::MCMCsummary to extract summary statistics from
-#' MCMC samples. For CmdStanR fits, also extracts HMC diagnostics (divergent
-#' transitions, max treedepth exceeded, E-BFMI).
+#' S3 generic for extracting summary statistics from various fit object types.
+#' Supports CmdStanR fit types and ACML fits.
 #'
-#' @param mcmc_output MCMC output object
-#' @param dataset_id A character string identifying the dataset (added as a column)
+#' @param object A model fit object
+#' @param ... Additional arguments passed to methods
 #' @return A data frame with summary statistics for each parameter
 #' @export
-mcmc_summary <- function(mcmc_output,
-                         dataset_id){
+model_summary <- function(object, ...) {
+    UseMethod("model_summary")
+}
 
-  out <-
-  mcmc_output |>
-    MCMCvis::MCMCsummary() |>
-    as.data.frame() |>
-    tibble::rownames_to_column(var = "parameter")
+#' @rdname model_summary
+#' @export
+model_summary.CmdStanMCMC <- function(object, ...) {
+    out <- object$summary() |>
+        as.data.frame() |>
+        dplyr::rename(parameter = "variable")
 
-  out$dataset_id <- dataset_id
+    diag <- object$diagnostic_summary()
+    out$divergent_transitions <- sum(diag$num_divergent, na.rm = TRUE)
+    out$max_treedepth_exceeded <- sum(diag$num_max_treedepth, na.rm = TRUE)
+    ebfmi_vals <- diag$ebfmi[is.finite(diag$ebfmi)]
+    out$ebfmi_min <- if (length(ebfmi_vals) > 0L) min(ebfmi_vals) else NA_real_
 
+    return(out)
+}
 
-  # Extract HMC diagnostics if this is a CmdStanMCMC object
-  if (inherits(mcmc_output, "CmdStanMCMC")) {
-    diag <- mcmc_output$diagnostic_summary()
-    out$divergent_transitions <- sum(diag$num_divergent)
-    out$max_treedepth_exceeded <- sum(diag$num_max_treedepth)
-    out$ebfmi_min <- min(diag$ebfmi)
-  } else {
+#' @rdname model_summary
+#' @export
+model_summary.CmdStanPathfinder <- function(object, ...) {
+    out <- object$summary() |>
+        as.data.frame() |>
+        dplyr::rename(parameter = "variable")
+
     out$divergent_transitions <- NA_integer_
     out$max_treedepth_exceeded <- NA_integer_
     out$ebfmi_min <- NA_real_
-  }
 
-  return(out)
+    return(out)
+}
+
+#' @rdname model_summary
+#' @export
+model_summary.CmdStanLaplace <- function(object, ...) {
+    out <- object$summary() |>
+        as.data.frame() |>
+        dplyr::rename(parameter = "variable")
+
+    out$divergent_transitions <- NA_integer_
+    out$max_treedepth_exceeded <- NA_integer_
+    out$ebfmi_min <- NA_real_
+
+    return(out)
+}
+
+#' @rdname model_summary
+#' @export
+model_summary.CmdStanMLE <- function(object, ...) {
+    summ <- object$summary() |>
+        as.data.frame()
+
+    out <- data.frame(
+        parameter = summ$variable,
+        mean = summ$estimate,
+        sd = NA_real_,
+        median = summ$estimate,
+        q5 = NA_real_,
+        q95 = NA_real_,
+        rhat = NA_real_,
+        ess_bulk = NA_real_,
+        ess_tail = NA_real_,
+        check.names = FALSE
+    )
+    out$divergent_transitions <- NA_integer_
+    out$max_treedepth_exceeded <- NA_integer_
+    out$ebfmi_min <- NA_real_
+
+    return(out)
+}
+
+#' @rdname model_summary
+#' @export
+model_summary.acml_fit <- function(object, ...) {
+    out <- object
+    # Rename variable to parameter if needed
+    if ("variable" %in% names(out) && !"parameter" %in% names(out)) {
+        out <- dplyr::rename(out, parameter = "variable")
+    }
+    out$parameter <- translate_parameter_names(out$parameter, from = "acml", to = "stan")
+    out$divergent_transitions <- NA_integer_
+    out$max_treedepth_exceeded <- NA_integer_
+    out$ebfmi_min <- NA_real_
+    return(out)
+}
+
+#' @rdname model_summary
+#' @export
+model_summary.default <- function(object, ...) {
+    cli::cli_abort("No {.fn model_summary} method for class {.cls {class(object)}}")
 }
 
 #' Check for required columns in a data frame

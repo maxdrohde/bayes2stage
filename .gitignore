@@ -34,3 +34,6 @@ scripts/
 
 # Archived code (not part of package)
 archived/
+
+# Simulation planning docs (personal notes)
+simulation_hypotheses.md

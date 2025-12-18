@@ -55,7 +55,7 @@ format_data_mcmc <- function(data,
   G <- nrow(id_df)
   pos <- integer(G)
   len <- integer(G)
-  for (g in 1:G) {
+  for (g in seq_len(G)) {
     idx <- which(data$id_idx == g)
     pos[g] <- min(idx)
     len[g] <- length(idx)

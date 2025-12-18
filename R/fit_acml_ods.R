@@ -89,7 +89,7 @@ fit_acml_ods <- function(ods_df,
       "beta_t",
       "beta_z",
       "beta_x",
-      "beta_x_t_interaction",
+      "beta_t_x_interaction",
       "log_sigma_re[1]",
       "log_sigma_re[2]",
       "z_corr_re",
@@ -100,5 +100,6 @@ fit_acml_ods <- function(ods_df,
     `97.5%` = est + z*se
   )
 
+  class(ci_est) <- c("acml_fit", class(ci_est))
   return(ci_est)
 }
