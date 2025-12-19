@@ -1,0 +1,11 @@
+{
+  "r.lsp.diagnostics": false,
+  "[r]": {
+    "editor.formatOnSave": false,
+    "editor.defaultFormatter": "Posit.air-vscode"
+  },
+  "[quarto]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "quarto.quarto"
+  }
+}

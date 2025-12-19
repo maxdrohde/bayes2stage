@@ -1,7 +1,11 @@
-is_whole_number <- function(x, tol = .Machine$double.eps^0.5)  abs(x - round(x)) < tol
+is_whole_number <- function(x, tol = .Machine$double.eps^0.5) {
+    result <- abs(x - round(x)) < tol
+    return(result)
+}
 
 is_positive_integer <- function(x) {
-  is.numeric(x) & is.finite(x) & x > 0 & is_whole_number(x)
+    result <- is.numeric(x) & is.finite(x) & x > 0 & is_whole_number(x)
+    return(result)
 }
 
 #' Generate a unique seed from two indices using Cantor pairing
@@ -72,9 +76,21 @@ model_summary <- function(object, ...) {
 #' @rdname model_summary
 #' @export
 model_summary.CmdStanMCMC <- function(object, ...) {
-    out <- object$summary() |>
+    out <- object$summary(
+        NULL,
+        mean, median, sd,
+        ~quantile(.x, probs = c(0.025, 0.05, 0.5, 0.95, 0.975)),
+        posterior::rhat, posterior::ess_bulk, posterior::ess_tail
+    ) |>
         as.data.frame() |>
-        dplyr::rename(parameter = "variable")
+        dplyr::rename(
+            parameter = variable,
+            q2_5 = `2.5%`,
+            q5 = `5%`,
+            q50 = `50%`,
+            q95 = `95%`,
+            q97_5 = `97.5%`
+        )
 
     diag <- object$diagnostic_summary()
     out$divergent_transitions <- sum(diag$num_divergent, na.rm = TRUE)
@@ -88,10 +104,25 @@ model_summary.CmdStanMCMC <- function(object, ...) {
 #' @rdname model_summary
 #' @export
 model_summary.CmdStanPathfinder <- function(object, ...) {
-    out <- object$summary() |>
+    out <- object$summary(
+        NULL,
+        mean, median, sd,
+        ~quantile(.x, probs = c(0.025, 0.05, 0.5, 0.95, 0.975))
+    ) |>
         as.data.frame() |>
-        dplyr::rename(parameter = "variable")
+        dplyr::rename(
+            parameter = variable,
+            q2_5 = `2.5%`,
+            q5 = `5%`,
+            q50 = `50%`,
+            q95 = `95%`,
+            q97_5 = `97.5%`
+        )
 
+    # Pathfinder doesn't have MCMC diagnostics
+    out$rhat <- NA_real_
+    out$ess_bulk <- NA_real_
+    out$ess_tail <- NA_real_
     out$divergent_transitions <- NA_integer_
     out$max_treedepth_exceeded <- NA_integer_
     out$ebfmi_min <- NA_real_
@@ -102,10 +133,25 @@ model_summary.CmdStanPathfinder <- function(object, ...) {
 #' @rdname model_summary
 #' @export
 model_summary.CmdStanLaplace <- function(object, ...) {
-    out <- object$summary() |>
+    out <- object$summary(
+        NULL,
+        mean, median, sd,
+        ~quantile(.x, probs = c(0.025, 0.05, 0.5, 0.95, 0.975))
+    ) |>
         as.data.frame() |>
-        dplyr::rename(parameter = "variable")
+        dplyr::rename(
+            parameter = variable,
+            q2_5 = `2.5%`,
+            q5 = `5%`,
+            q50 = `50%`,
+            q95 = `95%`,
+            q97_5 = `97.5%`
+        )
 
+    # Laplace doesn't have MCMC diagnostics
+    out$rhat <- NA_real_
+    out$ess_bulk <- NA_real_
+    out$ess_tail <- NA_real_
     out$divergent_transitions <- NA_integer_
     out$max_treedepth_exceeded <- NA_integer_
     out$ebfmi_min <- NA_real_
@@ -122,10 +168,13 @@ model_summary.CmdStanMLE <- function(object, ...) {
     out <- data.frame(
         parameter = summ$variable,
         mean = summ$estimate,
-        sd = NA_real_,
         median = summ$estimate,
+        sd = NA_real_,
+        q2_5 = NA_real_,
         q5 = NA_real_,
+        q50 = summ$estimate,
         q95 = NA_real_,
+        q97_5 = NA_real_,
         rhat = NA_real_,
         ess_bulk = NA_real_,
         ess_tail = NA_real_,
@@ -142,14 +191,29 @@ model_summary.CmdStanMLE <- function(object, ...) {
 #' @export
 model_summary.acml_fit <- function(object, ...) {
     out <- object
-    # Rename variable to parameter if needed
     if ("variable" %in% names(out) && !"parameter" %in% names(out)) {
-        out <- dplyr::rename(out, parameter = "variable")
+        out <- dplyr::rename(out, parameter = variable)
     }
     out$parameter <- translate_parameter_names(out$parameter, from = "acml", to = "stan")
+
+    # Compute frequentist 95% CI from normal approximation
+    z_975 <- qnorm(0.975)
+    out$q2_5 <- out$mean - z_975 * out$sd
+    out$q97_5 <- out$mean + z_975 * out$sd
+
+    # Other quantiles from normal approximation
+    out$q5 <- out$mean - qnorm(0.95) * out$sd
+    out$q50 <- out$mean
+    out$q95 <- out$mean + qnorm(0.95) * out$sd
+
+    # MCMC diagnostics not applicable
+    out$rhat <- NA_real_
+    out$ess_bulk <- NA_real_
+    out$ess_tail <- NA_real_
     out$divergent_transitions <- NA_integer_
     out$max_treedepth_exceeded <- NA_integer_
     out$ebfmi_min <- NA_real_
+
     return(out)
 }
 
