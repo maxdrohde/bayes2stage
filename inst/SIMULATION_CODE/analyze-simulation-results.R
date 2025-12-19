@@ -283,6 +283,28 @@ compute_stats <- function(x, by_cols, truth) {
         100 * (se_model - se_emp) / se_emp, NA_real_)][]
 }
 
+compute_accuracy_stats <- function(x, by_cols, truth) {
+    x[, .(
+        rmse = sqrt(mean((estimate - truth)^2, na.rm = TRUE)),
+        mae = mean(abs(estimate - truth), na.rm = TRUE),
+        median_ae = median(abs(estimate - truth), na.rm = TRUE)
+    ), by = by_cols]
+}
+
+compute_coverage_stats <- function(x, by_cols, truth) {
+    x[, .(
+        coverage = mean(
+            truth >= q2_5 & truth <= q97_5,
+            na.rm = TRUE
+        ),
+        ci_width_mean = mean(q97_5 - q2_5, na.rm = TRUE),
+        n_covered = sum(
+            truth >= q2_5 & truth <= q97_5,
+            na.rm = TRUE
+        )
+    ), by = by_cols]
+}
+
 # 1. Original Statistics
 orig_stats <- compute_stats(dt, "type", true_param) |> tibble::as_tibble()
 
@@ -294,6 +316,22 @@ boot_map <- data.table::data.table(
 
 boot_samples <- dt[boot_map, on = "sim_iter", allow.cartesian = TRUE] |>
     compute_stats(c(".boot", "type"), true_param) |>
+    tibble::as_tibble()
+
+# 3. Accuracy Statistics (RMSE, MAE)
+orig_accuracy <- compute_accuracy_stats(dt, "type", true_param) |>
+    tibble::as_tibble()
+
+boot_accuracy <- dt[boot_map, on = "sim_iter", allow.cartesian = TRUE] |>
+    compute_accuracy_stats(c(".boot", "type"), true_param) |>
+    tibble::as_tibble()
+
+# 4. Coverage Statistics
+orig_coverage <- compute_coverage_stats(dt, "type", true_param) |>
+    tibble::as_tibble()
+
+boot_coverage <- dt[boot_map, on = "sim_iter", allow.cartesian = TRUE] |>
+    compute_coverage_stats(c(".boot", "type"), true_param) |>
     tibble::as_tibble()
 
 # ------------------------------------------------------------------------------
@@ -314,6 +352,58 @@ boot_cis <- boot_samples |>
         se_pct_bias_upper = quantile(se_pct_bias, 1 - alpha / 2, na.rm = TRUE),
         .by = type
     )
+
+# RMSE & MAE CIs
+boot_accuracy_cis <- boot_accuracy |>
+    dplyr::summarise(
+        rmse_lower = quantile(rmse, alpha / 2, na.rm = TRUE),
+        rmse_upper = quantile(rmse, 1 - alpha / 2, na.rm = TRUE),
+        mae_lower = quantile(mae, alpha / 2, na.rm = TRUE),
+        mae_upper = quantile(mae, 1 - alpha / 2, na.rm = TRUE),
+        .by = type
+    )
+
+accuracy_with_cis <- dplyr::left_join(orig_accuracy, boot_accuracy_cis, by = "type")
+
+# Coverage CIs
+boot_coverage_cis <- boot_coverage |>
+    dplyr::summarise(
+        coverage_lower = quantile(coverage, alpha / 2, na.rm = TRUE),
+        coverage_upper = quantile(coverage, 1 - alpha / 2, na.rm = TRUE),
+        .by = type
+    )
+
+coverage_with_cis <- dplyr::left_join(orig_coverage, boot_coverage_cis, by = "type") |>
+    dplyr::mutate(
+        coverage_pct = 100 * coverage,
+        coverage_lower_pct = 100 * coverage_lower,
+        coverage_upper_pct = 100 * coverage_upper,
+        coverage_deviation = coverage_pct - (100 * DEFAULT_CI_LEVEL)
+    )
+
+# Relative Efficiency with CIs
+boot_var_wide <- boot_samples |>
+    dplyr::mutate(variance = se_emp^2) |>
+    dplyr::select(type, .boot, variance) |>
+    tidyr::pivot_wider(names_from = type, values_from = variance)
+
+baseline_type <- DEFAULT_BASELINE_TYPE
+orig_var <- stats::setNames((orig_stats$se_emp)^2, orig_stats$type)
+
+rel_eff_results <- purrr::map_df(
+    setdiff(names(orig_var), baseline_type),
+    \(comp_type) {
+        boot_ratios <- boot_var_wide[[baseline_type]] / boot_var_wide[[comp_type]]
+        point_est <- orig_var[baseline_type] / orig_var[comp_type]
+
+        tibble::tibble(
+            type = comp_type,
+            rel_eff = point_est,
+            rel_eff_lower = quantile(boot_ratios, alpha / 2, na.rm = TRUE),
+            rel_eff_upper = quantile(boot_ratios, 1 - alpha / 2, na.rm = TRUE)
+        )
+    }
+)
 
 # ------------------------------------------------------------------------------
 # Build output structures for downstream plotting code
@@ -584,6 +674,119 @@ p_win_prob <- win_probs |>
     )
 
 # ------------------------------------------------------------------------------
+# RMSE Forest Plot
+# ------------------------------------------------------------------------------
+
+rmse_forest_data <- accuracy_with_cis |>
+    dplyr::transmute(
+        type,
+        estimate = rmse,
+        lower = rmse_lower,
+        upper = rmse_upper
+    )
+
+p_rmse <- forest_plot(
+    rmse_forest_data,
+    title = "Root Mean Squared Error (RMSE)",
+    x_lab = "RMSE",
+    add_vline = FALSE
+)
+
+# ------------------------------------------------------------------------------
+# MAE Forest Plot
+# ------------------------------------------------------------------------------
+
+mae_forest_data <- accuracy_with_cis |>
+    dplyr::transmute(
+        type,
+        estimate = mae,
+        lower = mae_lower,
+        upper = mae_upper
+    )
+
+p_mae <- forest_plot(
+    mae_forest_data,
+    title = "Mean Absolute Error (MAE)",
+    x_lab = "MAE",
+    add_vline = FALSE
+)
+
+# ------------------------------------------------------------------------------
+# Coverage Forest Plot
+# ------------------------------------------------------------------------------
+
+p_coverage <- coverage_with_cis |>
+    ggplot(aes(y = type, x = coverage_pct)) +
+    geom_vline(
+        xintercept = 100 * DEFAULT_CI_LEVEL,
+        linetype = "solid",
+        color = "red",
+        linewidth = 0.8
+    ) +
+    geom_vline(
+        xintercept = c(100 * DEFAULT_CI_LEVEL - 2, 100 * DEFAULT_CI_LEVEL + 2),
+        linetype = "dashed",
+        color = "orange",
+        alpha = 0.7
+    ) +
+    geom_errorbar(
+        aes(xmin = coverage_lower_pct, xmax = coverage_upper_pct),
+        width = 0.2
+    ) +
+    geom_point(size = 3) +
+    labs(
+        title = glue::glue("Coverage of {100 * DEFAULT_CI_LEVEL}% Intervals"),
+        x = "Coverage (%)",
+        y = "",
+        caption = "Red line: nominal coverage | Orange: ±2% tolerance\nBayesian: credible intervals | ACML: confidence intervals"
+    )
+
+# ------------------------------------------------------------------------------
+# Coverage vs CI Width Tradeoff
+# ------------------------------------------------------------------------------
+
+p_coverage_width <- coverage_with_cis |>
+    ggplot(aes(x = ci_width_mean, y = coverage_pct, color = type)) +
+    geom_hline(
+        yintercept = 100 * DEFAULT_CI_LEVEL,
+        linetype = "dashed",
+        color = "red"
+    ) +
+    geom_point(size = 4) +
+    ggrepel::geom_text_repel(
+        aes(label = type),
+        fontface = "bold",
+        show.legend = FALSE
+    ) +
+    labs(
+        title = "Coverage vs CI Width Tradeoff",
+        x = "Mean CI Width",
+        y = "Coverage (%)",
+        caption = "Ideal: upper-left (high coverage, narrow CI)"
+    ) +
+    theme(legend.position = "none")
+
+# ------------------------------------------------------------------------------
+# Relative Efficiency Forest Plot
+# ------------------------------------------------------------------------------
+
+p_rel_eff <- rel_eff_results |>
+    ggplot(aes(y = type, x = rel_eff)) +
+    geom_vline(xintercept = 1, linetype = "dashed", color = "gray") +
+    geom_errorbar(
+        aes(xmin = rel_eff_lower, xmax = rel_eff_upper),
+        width = 0.2
+    ) +
+    geom_point(size = 3) +
+    scale_x_log10() +
+    labs(
+        title = glue::glue("Relative Efficiency vs {baseline_type}"),
+        x = "Relative Efficiency (log scale)",
+        y = "",
+        caption = ">1: more efficient than baseline | <1: less efficient"
+    )
+
+# ------------------------------------------------------------------------------
 # Summary table
 # ------------------------------------------------------------------------------
 
@@ -603,10 +806,31 @@ pct_bias_col <- if (include_pct_bias) {
     )
 }
 
+rmse_table_col <- accuracy_with_cis |>
+    dplyr::transmute(
+        type,
+        RMSE = format_ci(rmse, rmse_lower, rmse_upper)
+    )
+
+mae_table_col <- accuracy_with_cis |>
+    dplyr::transmute(
+        type,
+        MAE = format_ci(mae, mae_lower, mae_upper)
+    )
+
+coverage_table_col <- coverage_with_cis |>
+    dplyr::transmute(
+        type,
+        Coverage = format_ci(coverage_pct, coverage_lower_pct, coverage_upper_pct, digits = 1)
+    )
+
 summary_tables <- list(
     dplyr::count(sim_results_paired, type, name = "N_sims"),
     dplyr::transmute(boot_bias, type, Bias = format_ci(estimate, lower, upper)),
     pct_bias_col,
+    rmse_table_col,
+    mae_table_col,
+    coverage_table_col,
     dplyr::transmute(
         boot_se,
         type,
@@ -798,6 +1022,11 @@ if (has_hmc_diagnostics) {
         wrap_plots(
             p_table,
             p_bias,
+            p_rmse,
+            p_mae,
+            p_coverage,
+            p_coverage_width,
+            p_rel_eff,
             p_se,
             p_se_bias_boot,
             p_emp_se,
@@ -809,7 +1038,7 @@ if (has_hmc_diagnostics) {
             p_hmc_table,
             p_settings,
             ncol = 1,
-            heights = c(1, 1.5, 2, 1.5, 1.5, 2, 1.5, 1, 1, 1.5, 1.5, 1.5)
+            heights = c(1, 1.5, 1, 1, 1.5, 1.5, 1, 2, 1.5, 1.5, 2, 1.5, 1, 1, 1.5, 1.5, 1.5)
         ) +
         plot_annotation(title = plot_title, theme = plot_theme)
 } else if (has_mcmc_diagnostics) {
@@ -817,6 +1046,11 @@ if (has_hmc_diagnostics) {
         wrap_plots(
             p_table,
             p_bias,
+            p_rmse,
+            p_mae,
+            p_coverage,
+            p_coverage_width,
+            p_rel_eff,
             p_se,
             p_se_bias_boot,
             p_emp_se,
@@ -827,7 +1061,7 @@ if (has_hmc_diagnostics) {
             p_mcmc_table,
             p_settings,
             ncol = 1,
-            heights = c(1, 1.5, 2, 1.5, 1.5, 2, 1.5, 1, 1, 1.5, 1.5)
+            heights = c(1, 1.5, 1, 1, 1.5, 1.5, 1, 2, 1.5, 1.5, 2, 1.5, 1, 1, 1.5, 1.5)
         ) +
         plot_annotation(title = plot_title, theme = plot_theme)
 } else {
@@ -835,6 +1069,11 @@ if (has_hmc_diagnostics) {
         wrap_plots(
             p_table,
             p_bias,
+            p_rmse,
+            p_mae,
+            p_coverage,
+            p_coverage_width,
+            p_rel_eff,
             p_se,
             p_se_bias_boot,
             p_emp_se,
@@ -842,7 +1081,7 @@ if (has_hmc_diagnostics) {
             p_win_prob,
             p_settings,
             ncol = 1,
-            heights = c(2, 0.8, 2, 0.8, 0.8, 0.8, 0.8, 1.5)
+            heights = c(2, 0.8, 0.8, 0.8, 1, 1, 0.8, 2, 0.8, 0.8, 0.8, 0.8, 1.5)
         ) +
         plot_annotation(title = plot_title, theme = plot_theme)
 }
@@ -860,7 +1099,7 @@ ggsave(
     ),
     units = "in",
     width = 14,
-    height = 20,
+    height = 28,
     device = ragg::agg_png,
     bg = "white",
     dpi = 300

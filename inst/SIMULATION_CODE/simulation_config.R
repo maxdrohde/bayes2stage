@@ -88,6 +88,12 @@ DEFAULT_ESS_THRESHOLD <- 400L
 DEFAULT_N_BOOT_REPS <- 5000L
 SHOW_MCMC_DIAGNOSTICS <- FALSE
 
+# Coverage analysis settings
+DEFAULT_COVERAGE_TOLERANCE <- 0.02
+
+# Relative efficiency baseline
+DEFAULT_BASELINE_TYPE <- "SRS\n(no imp)"
+
 # ==============================================================================
 # Plotting Settings
 # ==============================================================================

@@ -48,6 +48,7 @@ if (fs::file_exists(cached_file)) {
       dplyr::filter(!has_error) |>
       dplyr::select(
         sim_setting, sim_iter, parameter, estimate = mean, se = sd, type,
+        q2_5, q97_5,
         rhat, ess_bulk, ess_tail,
         divergent_transitions, max_treedepth_exceeded, ebfmi_min
       ) |>
