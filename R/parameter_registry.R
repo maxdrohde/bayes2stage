@@ -18,7 +18,7 @@ get_parameter_registry <- function() {
         "beta_x",               "beta_x",               "Beta x",                 "beta_x",
         "beta_z",               "beta[1]",              "Beta z",                 "beta_z",
         "beta_t",               "beta_t",               "Beta t",                 "beta_t",
-        "beta_t_x_interaction", "beta_t_x_interaction", "Beta x:t Interaction",   "beta_t_x_interaction",
+        "beta_t_x_interaction", "beta_x_t_interaction", "Beta x:t Interaction",   "beta_x_t_interaction",
         "alpha_main",           "alpha_main",           "Intercept (Main)",       "alpha_main",
         "error_sd",             "sigma_main",           "Error SD (Main)",        NA_character_,
         "rand_intercept_sd",    "sigma_re[1]",          "Random Intercept SD",    NA_character_,
