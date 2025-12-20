@@ -18,7 +18,7 @@ suppressWarnings(suppressPackageStartupMessages({
 source("simulation_config.R")
 
 theme_set(
-    cowplot::theme_cowplot(font_size = 12, font_family = "Source Sans Pro") +
+    cowplot::theme_cowplot(font_size = 11, font_family = "Source Sans Pro") +
         theme(
             plot.title = element_text(face = "bold"),
             geom = element_geom(pointsize = 3, linewidth = 0.8)
@@ -53,7 +53,14 @@ format_ci <- function(est, lower, upper, digits = 2) {
     result <- dplyr::if_else(
         is.na(est) | is.na(lower) | is.na(upper),
         "NA (NA, NA)",
-        paste0(round(est, digits), " (", round(lower, digits), ", ", round(upper, digits), ")")
+        paste0(
+            round(est, digits),
+            " (",
+            round(lower, digits),
+            ", ",
+            round(upper, digits),
+            ")"
+        )
     )
     return(result)
 }
@@ -197,20 +204,20 @@ if (has_mcmc_diagnostics) {
 
         hmc_summary <- hmc_diagnostics |>
             dplyr::summarise(
-                `Percent with Divergences` =
-                    (100 * mean(divergent_transitions > 0, na.rm = TRUE)) |>
+                `Percent with Divergences` = (100 *
+                    mean(divergent_transitions > 0, na.rm = TRUE)) |>
                     round(1),
-                `mean(Divergences)` =
-                    mean(divergent_transitions, na.rm = TRUE) |>
+                `mean(Divergences)` = mean(
+                    divergent_transitions,
+                    na.rm = TRUE
+                ) |>
                     round(1),
-                `Percent with Max Treedepth` =
-                    (100 * mean(max_treedepth_exceeded > 0, na.rm = TRUE)) |>
+                `Percent with Max Treedepth` = (100 *
+                    mean(max_treedepth_exceeded > 0, na.rm = TRUE)) |>
                     round(1),
-                `mean(E-BFMI)` =
-                    mean(ebfmi_min, na.rm = TRUE) |>
+                `mean(E-BFMI)` = mean(ebfmi_min, na.rm = TRUE) |>
                     round(2),
-                `min(E-BFMI)` =
-                    min(ebfmi_min, na.rm = TRUE) |>
+                `min(E-BFMI)` = min(ebfmi_min, na.rm = TRUE) |>
                     round(2),
                 .by = type
             ) |>
@@ -246,13 +253,17 @@ if (!all(iter_type_counts$complete)) {
         table() |>
         sort(decreasing = TRUE)
 
-    cli::cli_alert_warning("Dropped {.val {nrow(incomplete)}} incomplete iterations")
+    cli::cli_alert_warning(
+        "Dropped {.val {nrow(incomplete)}} incomplete iterations"
+    )
     cli::cli_alert_info("Missing types:")
     cli::cli_bullets(stats::setNames(
         glue::glue("{names(missing_types)}: {missing_types}"),
         rep("*", length(missing_types))
     ))
-    cli::cli_alert_info("Using {.val {length(complete_iters)}} complete iterations")
+    cli::cli_alert_info(
+        "Using {.val {length(complete_iters)}} complete iterations"
+    )
 }
 
 if (length(complete_iters) == 0L) {
@@ -273,36 +284,48 @@ dt <- data.table::as.data.table(sim_results_paired, key = "sim_iter")
 iters <- unique(dt$sim_iter)
 
 compute_stats <- function(x, by_cols, truth) {
-    x[, .(
-        bias     = mean(estimate, na.rm = TRUE) - truth,
-        se_emp   = sd(estimate, na.rm = TRUE),
-        se_model = mean(se, na.rm = TRUE)
-    ), by = by_cols
-    ][, se_pct_bias := data.table::fifelse(
-        is.finite(se_emp) & se_emp > 0,
-        100 * (se_model - se_emp) / se_emp, NA_real_)][]
+    x[,
+        .(
+            bias = mean(estimate, na.rm = TRUE) - truth,
+            se_emp = sd(estimate, na.rm = TRUE),
+            se_model = mean(se, na.rm = TRUE)
+        ),
+        by = by_cols
+    ][,
+        se_pct_bias := data.table::fifelse(
+            is.finite(se_emp) & se_emp > 0,
+            100 * (se_model - se_emp) / se_emp,
+            NA_real_
+        )
+    ][]
 }
 
 compute_accuracy_stats <- function(x, by_cols, truth) {
-    x[, .(
-        rmse = sqrt(mean((estimate - truth)^2, na.rm = TRUE)),
-        mae = mean(abs(estimate - truth), na.rm = TRUE),
-        median_ae = median(abs(estimate - truth), na.rm = TRUE)
-    ), by = by_cols]
+    x[,
+        .(
+            rmse = sqrt(mean((estimate - truth)^2, na.rm = TRUE)),
+            mae = mean(abs(estimate - truth), na.rm = TRUE),
+            median_ae = median(abs(estimate - truth), na.rm = TRUE)
+        ),
+        by = by_cols
+    ]
 }
 
 compute_coverage_stats <- function(x, by_cols, truth) {
-    x[, .(
-        coverage = mean(
-            truth >= q2_5 & truth <= q97_5,
-            na.rm = TRUE
+    x[,
+        .(
+            coverage = mean(
+                truth >= q2_5 & truth <= q97_5,
+                na.rm = TRUE
+            ),
+            ci_width_mean = mean(q97_5 - q2_5, na.rm = TRUE),
+            n_covered = sum(
+                truth >= q2_5 & truth <= q97_5,
+                na.rm = TRUE
+            )
         ),
-        ci_width_mean = mean(q97_5 - q2_5, na.rm = TRUE),
-        n_covered = sum(
-            truth >= q2_5 & truth <= q97_5,
-            na.rm = TRUE
-        )
-    ), by = by_cols]
+        by = by_cols
+    ]
 }
 
 # 1. Original Statistics
@@ -311,7 +334,11 @@ orig_stats <- compute_stats(dt, "type", true_param) |> tibble::as_tibble()
 # 2. Bootstrap Statistics
 boot_map <- data.table::data.table(
     .boot = rep(seq_len(DEFAULT_N_BOOT_REPS), each = length(iters)),
-    sim_iter = sample(iters, length(iters) * DEFAULT_N_BOOT_REPS, replace = TRUE)
+    sim_iter = sample(
+        iters,
+        length(iters) * DEFAULT_N_BOOT_REPS,
+        replace = TRUE
+    )
 )
 
 boot_samples <- dt[boot_map, on = "sim_iter", allow.cartesian = TRUE] |>
@@ -332,7 +359,8 @@ orig_coverage <- compute_coverage_stats(dt, "type", true_param) |>
 
 boot_coverage <- dt[boot_map, on = "sim_iter", allow.cartesian = TRUE] |>
     compute_coverage_stats(c(".boot", "type"), true_param) |>
-    tibble::as_tibble()
+    tibble::as_tibble() |>
+    dplyr::mutate(coverage_pct = 100 * coverage)
 
 # ------------------------------------------------------------------------------
 # Compute percentile CIs
@@ -363,7 +391,11 @@ boot_accuracy_cis <- boot_accuracy |>
         .by = type
     )
 
-accuracy_with_cis <- dplyr::left_join(orig_accuracy, boot_accuracy_cis, by = "type")
+accuracy_with_cis <- dplyr::left_join(
+    orig_accuracy,
+    boot_accuracy_cis,
+    by = "type"
+)
 
 # Coverage CIs
 boot_coverage_cis <- boot_coverage |>
@@ -373,7 +405,11 @@ boot_coverage_cis <- boot_coverage |>
         .by = type
     )
 
-coverage_with_cis <- dplyr::left_join(orig_coverage, boot_coverage_cis, by = "type") |>
+coverage_with_cis <- dplyr::left_join(
+    orig_coverage,
+    boot_coverage_cis,
+    by = "type"
+) |>
     dplyr::mutate(
         coverage_pct = 100 * coverage,
         coverage_lower_pct = 100 * coverage_lower,
@@ -393,7 +429,8 @@ orig_var <- stats::setNames((orig_stats$se_emp)^2, orig_stats$type)
 rel_eff_results <- purrr::map_df(
     setdiff(names(orig_var), baseline_type),
     \(comp_type) {
-        boot_ratios <- boot_var_wide[[baseline_type]] / boot_var_wide[[comp_type]]
+        boot_ratios <- boot_var_wide[[baseline_type]] /
+            boot_var_wide[[comp_type]]
         point_est <- orig_var[baseline_type] / orig_var[comp_type]
 
         tibble::tibble(
@@ -577,7 +614,7 @@ p_se <-
     ) +
     theme(
         legend.position = "none",
-        plot.margin = margin(10, 10, 20, 10) # add space for labels drawn outside the panel
+        plot.margin = margin(5, 5, 10, 5) # add space for labels drawn outside the panel
     )
 
 include_pct_bias <- !isTRUE(all.equal(true_param, 0))
@@ -724,7 +761,10 @@ p_coverage <- coverage_with_cis |>
         linewidth = 0.8
     ) +
     geom_vline(
-        xintercept = c(100 * DEFAULT_CI_LEVEL - 100 * DEFAULT_COVERAGE_TOLERANCE, 100 * DEFAULT_CI_LEVEL + 100 * DEFAULT_COVERAGE_TOLERANCE),
+        xintercept = c(
+            100 * DEFAULT_CI_LEVEL - 100 * DEFAULT_COVERAGE_TOLERANCE,
+            100 * DEFAULT_CI_LEVEL + 100 * DEFAULT_COVERAGE_TOLERANCE
+        ),
         linetype = "dashed",
         color = "orange",
         alpha = 0.7
@@ -738,7 +778,9 @@ p_coverage <- coverage_with_cis |>
         title = glue::glue("Coverage of {100 * DEFAULT_CI_LEVEL}% Intervals"),
         x = "Coverage (%)",
         y = "",
-        caption = glue::glue("Red line: nominal coverage | Orange: ±{100 * DEFAULT_COVERAGE_TOLERANCE}% tolerance\nBayesian: credible intervals | ACML: confidence intervals")
+        caption = glue::glue(
+            "Red line: nominal coverage | Orange: ±{100 * DEFAULT_COVERAGE_TOLERANCE}% tolerance\nBayesian: credible intervals | ACML: confidence intervals"
+        )
     )
 
 # ------------------------------------------------------------------------------
@@ -751,6 +793,15 @@ p_coverage_width <- coverage_with_cis |>
         yintercept = 100 * DEFAULT_CI_LEVEL,
         linetype = "dashed",
         color = "red"
+    ) +
+    stat_ellipse(
+        data = boot_coverage,
+        aes(x = ci_width_mean, y = coverage_pct, fill = type),
+        geom = "polygon",
+        type = "norm",
+        level = DEFAULT_CI_LEVEL,
+        color = NA,
+        alpha = 0.2
     ) +
     geom_point(size = 4) +
     ggrepel::geom_text_repel(
@@ -797,35 +848,40 @@ pct_bias_col <- if (include_pct_bias) {
         })) |>
         dplyr::transmute(
             type,
-            `Percent Bias` = format_ci(estimate, lower, upper)
+            `Percent\nBias` = format_ci(estimate, lower, upper)
         )
 } else {
     tibble::tibble(
         type = unique(sim_results_paired$type),
-        `Percent Bias` = "N/A"
+        `Percent\nBias` = "N/A"
     )
 }
 
 rmse_table_col <- accuracy_with_cis |>
     dplyr::transmute(
         type,
-        RMSE = format_ci(rmse, rmse_lower, rmse_upper)
+        `Root Mean\nSq. Error` = format_ci(rmse, rmse_lower, rmse_upper)
     )
 
 mae_table_col <- accuracy_with_cis |>
     dplyr::transmute(
         type,
-        MAE = format_ci(mae, mae_lower, mae_upper)
+        `Mean\nAbs. Error` = format_ci(mae, mae_lower, mae_upper)
     )
 
 coverage_table_col <- coverage_with_cis |>
     dplyr::transmute(
         type,
-        Coverage = format_ci(coverage_pct, coverage_lower_pct, coverage_upper_pct, digits = 1)
+        `Coverage\n(%)` = format_ci(
+            coverage_pct,
+            coverage_lower_pct,
+            coverage_upper_pct,
+            digits = 1
+        )
     )
 
 summary_tables <- list(
-    dplyr::count(sim_results_paired, type, name = "N_sims"),
+    dplyr::count(sim_results_paired, type, name = "N\nSims"),
     dplyr::transmute(boot_bias, type, Bias = format_ci(estimate, lower, upper)),
     pct_bias_col,
     rmse_table_col,
@@ -834,17 +890,17 @@ summary_tables <- list(
     dplyr::transmute(
         boot_se,
         type,
-        `Empirical SE` = format_ci(estimate, lower, upper)
+        `Empirical\nSE` = format_ci(estimate, lower, upper)
     ),
     dplyr::transmute(
         se_table,
         type,
-        `Model-based SE` = format_ci(se_model, se_model_lower, se_model_upper)
+        `Model-based\nSE` = format_ci(se_model, se_model_lower, se_model_upper)
     ),
     dplyr::transmute(
         boot_se_pct_bias,
         type,
-        `SE Percent Bias` = format_ci(estimate, lower, upper)
+        `SE Percent\nBias (%)` = format_ci(estimate, lower, upper)
     )
 )
 
@@ -864,16 +920,30 @@ current_sampled_frac <- current_grid_row[["sampling_fraction"]]
 current_n_sampled <- as.integer(current_N * current_sampled_frac)
 
 table_theme <- gridExtra::ttheme_default(
-    base_size = 11,
+    base_size = 10,
     base_family = "Helvetica",
-    padding = grid::unit(c(4, 3), "mm"),
+    padding = grid::unit(c(4, 4), "mm"),
     core = list(
         fg_params = list(hjust = 0.5, x = 0.5),
-        bg_params = list(fill = c("white", "gray95"))
+        bg_params = list(
+            fill = c("white", "#ECF0F1"),
+            col = "white",
+            lwd = 1.5
+        )
     ),
     colhead = list(
-        fg_params = list(fontface = "bold", hjust = 0.5, x = 0.5),
-        bg_params = list(fill = "gray90", col = "white")
+        fg_params = list(
+            fontsize = 11,
+            fontface = "bold",
+            col = "white",
+            hjust = 0.5,
+            x = 0.5
+        ),
+        bg_params = list(
+            fill = "#2C3E50",
+            col = "white",
+            lwd = 1.5
+        )
     )
 )
 
@@ -883,7 +953,7 @@ table_grob <- gridExtra::tableGrob(
     theme = table_theme
 )
 
-p_table <- wrap_elements(table_grob) + ggtitle("Summary Statistics")
+p_table <- wrap_elements(table_grob)
 
 if (has_mcmc_diagnostics) {
     mcmc_table_grob <- gridExtra::tableGrob(
@@ -919,8 +989,7 @@ x_dist_label <- if (
 
 # Build combined plot with appropriate diagnostics panels
 plot_title <- glue::glue(
-    "Parameter: {format_parameter_name(selected_parameter)} (True value: {true_param})",
-    "\nSetting: {selected_setting}, N_total: {current_N}, N_sampled: {current_n_sampled}, X: {x_dist_label}"
+    "Parameter: {format_parameter_name(selected_parameter)}"
 )
 plot_theme <- theme(
     plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
@@ -984,38 +1053,30 @@ ANALYSIS
   generated: {format(Sys.time(), '%Y-%m-%d %H:%M')}"
 )
 
-settings_grobs <- purrr::map(
-    list(
-        settings_col1,
-        settings_col2,
-        settings_col3
-    ),
-    \(txt) {
-        grid::textGrob(
-            txt,
-            x = 0.05,
-            y = 0.95,
-            hjust = 0,
-            vjust = 1,
-            gp = grid::gpar(fontsize = 9, fontfamily = "mono")
-        )
-    }
+# Combine all settings text into one vertical block
+settings_text_combined <- paste(
+    settings_col1,
+    settings_col2,
+    settings_col3,
+    sep = "\n\n"
 )
 
-p_settings_inner <- wrap_plots(
-    wrap_elements(settings_grobs[[1]]),
-    wrap_elements(settings_grobs[[2]]),
-    wrap_elements(settings_grobs[[3]]),
-    nrow = 1
-) &
-    theme(plot.margin = margin(2, 10, 2, 10))
+settings_grob <- grid::textGrob(
+    settings_text_combined,
+    x = 0.05,
+    y = 0.95,
+    hjust = 0,
+    vjust = 1,
+    gp = grid::gpar(fontsize = 11, fontfamily = "Helvetica")
+)
 
-p_settings <- p_settings_inner +
+p_settings <- wrap_elements(settings_grob) +
     plot_annotation(title = "Simulation Settings") &
     theme(
-        plot.title = element_text(size = 11, face = "bold", hjust = 0),
+        plot.title = element_text(size = 11, face = "bold", hjust = 0.5),
         plot.background = element_rect(fill = "gray98", color = NA)
     )
+
 
 # Organize plots into a unified list
 # Plots suitable for the grid
@@ -1034,25 +1095,44 @@ grid_plots <- list(
 )
 
 if (has_mcmc_diagnostics) {
-    grid_plots <- c(grid_plots, list(p_rhat, p_ess, p_mcmc_table))
+    # Stack diagnostics vertically
+    p_mcmc_stacked <- (p_rhat / p_ess) +
+        patchwork::plot_layout(heights = c(1, 1))
+
+    grid_plots <- c(grid_plots, list(p_mcmc_stacked))
 }
 
-if (has_hmc_diagnostics) {
-    grid_plots <- c(grid_plots, list(p_hmc_table))
-}
 
 # Create the grid for standard plots
-# 5 columns fits the 15-ish plots well in a landscape view
-p_grid <- patchwork::wrap_plots(grid_plots, ncol = 5)
+# Add the summary table to the end of the list
+grid_plots <- c(grid_plots, list(p_table))
 
-# Header: Summary Table (Left) + Settings (Right)
-# Adjust widths to give relevant space
-p_header <- (p_table | p_settings) + 
-    patchwork::plot_layout(widths = c(2, 1))
+# Define layout design
+# A-K are the 11 plots
+# S is the stacked diagnostics (already in grid_plots as item 12)
+# T is the summary table (item 13)
+# 5 columns:
+# Row 1: A B C D E
+# Row 2: F G H I J
+# Row 3: K S T T T (Table takes 3 slots)
+layout_design <- "
+ABCDE
+FGHIJ
+KSTTT
+"
 
-# Combine: Header on top, then Grid
-combined_plot <- (p_header / p_grid) +
-    patchwork::plot_layout(heights = c(1, 3)) + 
+# Create the grid with custom design
+p_grid <- patchwork::wrap_plots(grid_plots, design = layout_design)
+
+# Right Panel: Settings (Diagnostics moved back to grid)
+p_right <- p_settings
+
+# Left Panel: Just the grid now (table is inside it)
+p_left <- p_grid
+
+# Combine: Left Panel | Right Panel
+combined_plot <- (p_left | p_right) +
+    patchwork::plot_layout(widths = c(6, 1)) +
     plot_annotation(title = plot_title, theme = plot_theme)
 
 # ------------------------------------------------------------------------------
@@ -1067,9 +1147,9 @@ ggsave(
         "{plots_dir}/simulation_plots_{selected_parameter}.png"
     ),
     units = "in",
-    width = 16,     # Fits 16-inch MacBook width
-    height = 10,    # Fits 16:10 aspect ratio (~10 inches)
+    width = 24, # Optimized for 24-inch screen
+    height = 13.5, # 16:9 aspect ratio
     device = ragg::agg_png,
     bg = "white",
-    dpi = 300       # High DPI for Retina display
+    dpi = 300 # High DPI for Retina display
 )

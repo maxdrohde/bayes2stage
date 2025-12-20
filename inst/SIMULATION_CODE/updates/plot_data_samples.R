@@ -96,7 +96,7 @@ for (i in seq_len(n_settings)) {
         width = 12,
         height = 8,
         units = "in",
-        dpi = 300
+        dpi = 150
       )
 
       as.character(plot_file)
