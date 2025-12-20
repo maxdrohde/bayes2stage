@@ -10,7 +10,6 @@
 #   - TYPE_LEVELS: Factor levels for analysis types
 ################################################################################
 
-
 ################################################################################
 #
 #                    SETTINGS YOU'LL COMMONLY CHANGE
@@ -42,7 +41,7 @@ DEFAULT_INFERENCE_ARGS <- list(
 # ==============================================================================
 # Sampling design options: "full", "srs", "srs_no_imp", "ods", "bds"
 
-SAMPLING_DESIGNS <- c("full", "srs", "srs_no_imp", "ods", "bds")
+SAMPLING_DESIGNS <- c("srs", "srs_no_imp", "ods", "bds")
 
 # Whether to fit the ACML model (requires ODS data)
 FIT_ACML <- TRUE
@@ -86,7 +85,7 @@ DEFAULT_CI_LEVEL <- 0.95
 DEFAULT_RHAT_THRESHOLD <- 1.01
 DEFAULT_ESS_THRESHOLD <- 400L
 DEFAULT_N_BOOT_REPS <- 5000L
-SHOW_MCMC_DIAGNOSTICS <- FALSE
+SHOW_MCMC_DIAGNOSTICS <- TRUE
 
 # Coverage analysis settings
 DEFAULT_COVERAGE_TOLERANCE <- 0.02
@@ -117,7 +116,7 @@ DEFAULT_PLOT_SUBSET_SIZE <- 200L
 get_simulation_grid <- function() {
     grid <- tidyr::crossing(
         # Sample size and design
-        N = c(1000L),
+        N = c(300L),
         sampling_fraction = c(0.25),
         sampling_type = c("intercept"),
         M = c(5L),
@@ -134,7 +133,7 @@ get_simulation_grid <- function() {
         error_sd = c(1),
 
         # Random effects
-        rand_intercept_sd = c(4),
+        rand_intercept_sd = c(3),
         rand_slope_sd = c(1),
         rand_eff_corr = c(0),
 
@@ -195,7 +194,11 @@ clean_type_names <- function(x) {
 #' @param x Character vector of Stan parameter names
 #' @return Character vector of formatted display names
 format_parameter_name <- function(x) {
-    result <- bayes2stage::translate_parameter_names(x, from = "stan", to = "display")
+    result <- bayes2stage::translate_parameter_names(
+        x,
+        from = "stan",
+        to = "display"
+    )
     return(result)
 }
 
