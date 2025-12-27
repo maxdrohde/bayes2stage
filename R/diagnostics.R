@@ -10,7 +10,8 @@ NULL
 #' Default key parameters for diagnostics
 #' @keywords internal
 default_key_params <- function() {
-    get_key_parameters()
+    result <- get_key_parameters()
+    return(result)
 }
 
 # =============================================================================
@@ -38,8 +39,10 @@ plot_trace <- function(fit, parameters = NULL) {
         cli::cli_abort("No matching parameters found in draws")
     }
 
-    bayesplot::mcmc_trace(draws, pars = parameters) +
+    p <- bayesplot::mcmc_trace(draws, pars = parameters) +
         ggplot2::labs(title = "Trace Plots")
+
+    return(p)
 }
 
 #' Pairs plots for diagnosing posterior geometry
@@ -65,13 +68,15 @@ plot_pairs <- function(fit, parameters = NULL) {
 
     np <- bayesplot::nuts_params(fit)
 
-    bayesplot::mcmc_pairs(
+    p <- bayesplot::mcmc_pairs(
         draws,
         pars = parameters,
         off_diag_args = list(size = 0.5, alpha = 0.3),
         np = np
     ) +
         ggplot2::labs(title = "Pairs Plot (divergences highlighted)")
+
+    return(p)
 }
 
 #' Rank histogram plots for convergence diagnostics
@@ -95,8 +100,10 @@ plot_rank <- function(fit, parameters = NULL) {
         cli::cli_abort("No matching parameters found in draws")
     }
 
-    bayesplot::mcmc_rank_histogram(draws, pars = parameters) +
+    p <- bayesplot::mcmc_rank_hist(draws, pars = parameters) +
         ggplot2::labs(title = "Rank Histograms (uniform = good mixing)")
+
+    return(p)
 }
 
 #' Density plots with chain overlay
@@ -120,8 +127,10 @@ plot_density <- function(fit, parameters = NULL) {
         cli::cli_abort("No matching parameters found in draws")
     }
 
-    bayesplot::mcmc_dens_overlay(draws, pars = parameters) +
+    p <- bayesplot::mcmc_dens_overlay(draws, pars = parameters) +
         ggplot2::labs(title = "Posterior Densities by Chain")
+
+    return(p)
 }
 
 #' Posterior interval plots
@@ -147,9 +156,11 @@ plot_intervals <- function(fit, parameters = NULL, prob = 0.5, prob_outer = 0.95
         cli::cli_abort("No matching parameters found in draws")
     }
 
-    bayesplot::mcmc_intervals(draws, pars = parameters,
-                              prob = prob, prob_outer = prob_outer) +
+    p <- bayesplot::mcmc_intervals(draws, pars = parameters,
+                                   prob = prob, prob_outer = prob_outer) +
         ggplot2::labs(title = "Posterior Intervals")
+
+    return(p)
 }
 
 #' Energy diagnostic plot (NUTS-specific)
@@ -160,19 +171,21 @@ plot_intervals <- function(fit, parameters = NULL, prob = 0.5, prob_outer = 0.95
 plot_energy <- function(fit) {
     np <- bayesplot::nuts_params(fit)
 
-    bayesplot::mcmc_nuts_energy(np) +
+    p <- bayesplot::mcmc_nuts_energy(np) +
         ggplot2::labs(title = "NUTS Energy Diagnostic",
                       subtitle = "Overlapping distributions = good")
+
+    return(p)
 }
 
-#' Pareto k diagnostic plot for divergences
+#' Parallel coordinates plot for diagnosing divergences
 #'
 #' @param fit CmdStanMCMC fit object
 #' @param parameters Character vector of parameter names.
 #'   If NULL, uses parameters related to random effects.
 #' @return A ggplot object
 #' @export
-plot_pareto_k <- function(fit, parameters = NULL) {
+plot_parcoord <- function(fit, parameters = NULL) {
     if (is.null(parameters)) {
         parameters <- c("sigma_re[1]", "sigma_re[2]")
     }
@@ -187,8 +200,10 @@ plot_pareto_k <- function(fit, parameters = NULL) {
         cli::cli_abort("No matching parameters found in draws")
     }
 
-    bayesplot::mcmc_parcoord(draws, pars = parameters, np = np) +
+    p <- bayesplot::mcmc_parcoord(draws, pars = parameters, np = np) +
         ggplot2::labs(title = "Parallel Coordinates (divergences in red)")
+
+    return(p)
 }
 
 # =============================================================================
@@ -364,7 +379,7 @@ plot_funnel <- function(fit, sigma_param = "sigma_re[1]",
     }) |>
         dplyr::bind_rows()
 
-    ggplot2::ggplot(plot_data, ggplot2::aes(x = log_sigma, y = effect)) +
+    p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = log_sigma, y = effect)) +
         ggplot2::geom_point(alpha = 0.1, size = 0.5) +
         ggplot2::facet_wrap(~param, scales = "free_y") +
         ggplot2::labs(
@@ -374,4 +389,6 @@ plot_funnel <- function(fit, sigma_param = "sigma_re[1]",
             y = "Random Effect"
         ) +
         ggplot2::theme_minimal()
+
+    return(p)
 }

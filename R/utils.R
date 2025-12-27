@@ -40,8 +40,9 @@ cantor_seed <- function(i, j) {
 #' @param mcmc_output MCMC output object
 #' @return A forest plot of parameter estimates
 #' @export
-mcmc_forest <- function(mcmc_output){
-  MCMCvis::MCMCplot(mcmc_output)
+mcmc_forest <- function(mcmc_output) {
+    p <- MCMCvis::MCMCplot(mcmc_output)
+    return(p)
 }
 
 #' Plot MCMC trace plots
@@ -52,12 +53,9 @@ mcmc_forest <- function(mcmc_output){
 #' @param print_to_pdf Logical; if TRUE, saves trace plots to a PDF file
 #' @return Trace plots of MCMC samples
 #' @export
-mcmc_trace <- function(mcmc_output,
-                       print_to_pdf = FALSE){
-
-    MCMCvis::MCMCtrace(mcmc_output,
-                       pdf = print_to_pdf)
-
+mcmc_trace <- function(mcmc_output, print_to_pdf = FALSE) {
+    p <- MCMCvis::MCMCtrace(mcmc_output, pdf = print_to_pdf)
+    return(p)
 }
 
 #' Extract summary statistics from model fit objects
@@ -89,7 +87,10 @@ model_summary.CmdStanMCMC <- function(object, ...) {
             q5 = `5%`,
             q50 = `50%`,
             q95 = `95%`,
-            q97_5 = `97.5%`
+            q97_5 = `97.5%`,
+            rhat = `posterior::rhat`,
+            ess_bulk = `posterior::ess_bulk`,
+            ess_tail = `posterior::ess_tail`
         )
 
     diag <- object$diagnostic_summary()
@@ -235,6 +236,13 @@ check_cols <- function(data, required_cols) {
   missing <- setdiff(required_cols, names(data))
   if (length(missing) > 0L) {
     cli::cli_abort("{.arg data} is missing required column{?s}: {.val {missing}}.")
+  }
+  invisible(TRUE)
+}
+
+validate_sampling_type <- function(sampling_type) {
+  if (!(sampling_type %in% c("intercept", "slope"))) {
+    cli::cli_abort("{.arg sampling_type} must be {.val intercept} or {.val slope}.")
   }
   invisible(TRUE)
 }

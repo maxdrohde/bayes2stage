@@ -1,43 +1,26 @@
 # Given a dataset and an `lmer` formula, return a data.frame
 # of the BLUPs for each subject
-get_blups <- function(data,
-                      fixed_effects_formula,
-                      sampling_type){
-
+get_blups <- function(data, fixed_effects_formula, sampling_type) {
   check_cols(data, c("t", "id"))
+  validate_sampling_type(sampling_type)
 
   if (!("t" %in% all.vars(fixed_effects_formula))) {
     cli::cli_abort("{.var t} must be in {.arg fixed_effects_formula}.")
   }
 
-  # Add the random-effects to the user supplied fixed-effects formula
   lmer_formula <-
     glue::glue("{deparse(fixed_effects_formula)} + (1 + t | id)") |>
     stats::as.formula()
 
-  # Fit the lme4 mixed-effect model to compute BLUPs
-  mod <- lme4::lmer(formula = lmer_formula,
-                    data = data,
-                    REML = FALSE)
+  mod <- lme4::lmer(formula = lmer_formula, data = data, REML = FALSE)
 
-  # Extact the BLUPs
-  if (sampling_type == "intercept") {
-    out <-
-      lme4::ranef(mod) |>
-      as.data.frame() |>
-      dplyr::filter(term == "(Intercept)") |>
-      dplyr::select(id = grp,
-                    target = condval)
-  } else if (sampling_type == "slope") {
-    out <-
-      lme4::ranef(mod) |>
-      as.data.frame() |>
-      dplyr::filter(term == "t") |>
-      dplyr::select(id = grp,
-                    target = condval)
-  } else {
-    cli::cli_abort("{.arg sampling_type} must be {.val intercept} or {.val slope}.")
-  }
+  term_to_filter <- c(intercept = "(Intercept)", slope = "t")[[sampling_type]]
+
+  out <-
+    lme4::ranef(mod) |>
+    as.data.frame() |>
+    dplyr::filter(term == term_to_filter) |>
+    dplyr::select(id = grp, target = condval)
 
   out$sampling_type <- sampling_type
   out$id <- as.integer(as.character(out$id))
@@ -58,83 +41,37 @@ get_blups <- function(data,
 #' @param prop_low What proportion to sample from the Low category?
 #' @return A dataset where the x values are selected based on an BDS design
 #' @export
-bds_design <- function(data,
-                       fixed_effects_formula,
-                       sampling_type,
-                       cutoff_high,
-                       cutoff_low,
-                       n_sampled,
-                       prop_high,
-                       prop_middle,
-                       prop_low){
-
-  if (!(sampling_type %in% c("intercept", "slope"))) {
-    cli::cli_abort("{.arg sampling_type} must be {.val intercept} or {.val slope}.")
-  }
-  if (prop_high + prop_middle + prop_low != 1) {
-    cli::cli_abort("Strata proportions must sum to 1.")
-  }
+bds_design <- function(
+  data,
+  fixed_effects_formula,
+  sampling_type,
+  cutoff_high,
+  cutoff_low,
+  n_sampled,
+  prop_high,
+  prop_middle,
+  prop_low
+) {
   check_cols(data, "x")
-  if (!is_positive_integer(n_sampled)) {
-    cli::cli_abort("{.arg n_sampled} must be a positive integer.")
-  }
 
   blups <-
-    get_blups(data,
-              fixed_effects_formula,
-              sampling_type)
+    get_blups(data, fixed_effects_formula, sampling_type)
 
-  # Categorize  into high, middle, and low strata based on quantiles
-  blups$category <-
-    cut(blups$target,
-        breaks = c(-Inf,
-                   stats::quantile(blups$target, cutoff_low),
-                   stats::quantile(blups$target, cutoff_high),
-                   Inf),
-        labels = c("Low", "Middle", "High"))
-
-  # Compute sampling sizes for each strata
-  size_high <- n_sampled * prop_high
-  size_middle <- n_sampled * prop_middle
-  size_low <- n_sampled * prop_low
-
-  # Check sizes
-  sizes <- c(size_high, size_middle, size_low)
-  if (!all(is_positive_integer(sizes))) {
-    cli::cli_abort("Sample sizes must be positive whole numbers.")
-  }
-
-  # Convert sizes to integer
-  size_high <- as.integer(size_high)
-  size_middle <- as.integer(size_middle)
-  size_low <- as.integer(size_low)
-
-  # Sample IDs from the high, middle, and low strata
-  high_ids <- sample(dplyr::filter(blups, category == "High")$id,
-                     size = size_high,
-                     replace = FALSE)
-
-  middle_ids <- sample(dplyr::filter(blups, category == "Middle")$id,
-                       size = size_middle,
-                       replace = FALSE)
-
-  low_ids <- sample(dplyr::filter(blups, category == "Low")$id,
-                    size = size_low,
-                    replace = FALSE)
-
-  # Subjects IDs chosen for sampling
-  selected_ids <- c(high_ids,
-                    middle_ids,
-                    low_ids)
+  sampling_result <- perform_stratified_sampling(
+    id_target_df = blups,
+    n_sampled = n_sampled,
+    cutoff_low = cutoff_low,
+    cutoff_high = cutoff_high,
+    prop_low = prop_low,
+    prop_middle = prop_middle,
+    prop_high = prop_high
+  )
 
   # If not chosen for stage 2, set x to missing
-  stage2_df <- set_missing(data,
-                           selected_ids)
+  stage2_df <- set_missing(data, sampling_result$selected_ids)
 
-  # Merge in the information on the estimated BLUPs
-  stage2_df <- dplyr::left_join(stage2_df,
-                                blups,
-                                by = "id")
+  # Merge in the information on the estimated BLUPs (includes category)
+  stage2_df <- dplyr::left_join(stage2_df, sampling_result$id_target_df, by = "id")
 
   return(stage2_df)
 }

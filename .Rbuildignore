@@ -22,3 +22,5 @@
 ^pkgdown$
 ^\.github$
 ^\.claude$
+inst/SIMULATION_CODE/\.vscode$
+src/stan/mixed_effects_imputation_[^.]+$

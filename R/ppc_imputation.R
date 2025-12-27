@@ -853,6 +853,8 @@ ppc_imputation <- function(
   results$issues <- issues
   results$distribution <- distribution
 
+  class(results) <- c("ppc_imputation", class(results))
+
   return(results)
 }
 

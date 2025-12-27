@@ -44,10 +44,7 @@ generate_data <-
            gamma0 = 1, gamma1 = 1, gamma2 = 0, gamma_sd = 2) {
 
     # Checks ###################################################################
-    valid_dists <- c("normal", "poisson", "binomial", "negative_binomial", "beta_binomial")
-    if (!x_dist %in% valid_dists) {
-        cli::cli_abort("X distribution not supported. Must be one of: {.val {valid_dists}}")
-    }
+    x_dist <- match.arg(x_dist)
 
     if (x_dist %in% c("binomial", "beta_binomial") && is.null(x_size)) {
         cli::cli_abort("Must specify {.arg x_size} for binomial or beta binomial distributions.")
@@ -61,14 +58,16 @@ generate_data <-
     # List to store the data frame for each subject
     records <- vector(mode = "list", length = N)
 
+    # Pre-compute covariance matrix for random effects (constant)
+    sds <- diag(c(rand_intercept_sd, rand_slope_sd))
+    corr <- matrix(c(1, rand_eff_corr,
+                     rand_eff_corr, 1), nrow = 2L)
+    sigma <- sds %*% corr %*% sds
+
     # Loop over each subject and generate a longitudinal record
     for (i in 1:N) {
 
       # Generate subject specific random effects
-      sds <- diag(c(rand_intercept_sd, rand_slope_sd))
-      corr <- matrix(c(1, rand_eff_corr,
-                       rand_eff_corr, 1), nrow = 2L)
-      sigma <- sds %*% corr %*% sds
       rand_effs <-
         MASS::mvrnorm(n = 1L,
                       mu = c(0, 0),
@@ -81,8 +80,8 @@ generate_data <-
 
       eta <-
         gamma0 +
-        gamma1*z +
-        gamma2*z^2
+        gamma1 * z +
+        gamma2 * z^2
 
       x <-
         switch(
@@ -109,13 +108,13 @@ generate_data <-
         stats::rnorm(n = M, mean = 0, sd = error_sd)
 
       records[[i]] <-
-        data.frame(y=y,
-                   t=t,
-                   x=x,
-                   z=z,
+        data.frame(y = y,
+                   t = t,
+                   x = x,
+                   z = z,
                    rand_int = rand_effs[[1]],
                    rand_slope = rand_effs[[2]],
-                   id=i)
+                   id = i)
     }
 
     # Merge all the data frames together

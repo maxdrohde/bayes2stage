@@ -27,7 +27,7 @@ theme_set(
 
 # Forest plot with point estimates and CIs
 # Expects columns: type, estimate, lower, upper
-forest_plot <- function(data, title, x_lab, add_vline = TRUE) {
+forest_plot <- function(data, title, x_lab, add_vline = FALSE) {
     result <-
         data |>
         ggplot(aes(y = type, x = estimate)) +
@@ -69,25 +69,22 @@ format_ci <- function(est, lower, upper, digits = 2) {
 # Load data
 # ------------------------------------------------------------------------------
 
-cached_file <- "processed_data/combined_data.parquet"
+cached_dataset <- "processed_data/combined_data"
 
-if (!fs::file_exists(cached_file)) {
+if (!fs::dir_exists(cached_dataset)) {
     cli::cli_abort(
-        "Data not found at {.path {cached_file}}. Run batch.R first."
+        "Data not found at {.path {cached_dataset}}. Run batch.R first."
     )
 }
 
-full_data <- arrow::read_parquet(cached_file)
-
-# ------------------------------------------------------------------------------
-# Filter to selected parameter and sim_setting
-# ------------------------------------------------------------------------------
-
-sim_results <- full_data |>
+# Use Arrow predicate pushdown on partitioned dataset: reads only the relevant partition
+# Each parallel worker only loads its specific (parameter, sim_setting) subset
+sim_results <- arrow::open_dataset(cached_dataset) |>
     dplyr::filter(
         parameter == selected_parameter,
         sim_setting == selected_setting
-    )
+    ) |>
+    dplyr::collect()
 
 if (nrow(sim_results) == 0) {
     cli::cli_abort(
@@ -330,37 +327,49 @@ compute_coverage_stats <- function(x, by_cols, truth) {
 
 # 1. Original Statistics
 orig_stats <- compute_stats(dt, "type", true_param) |> tibble::as_tibble()
+orig_accuracy <- compute_accuracy_stats(dt, "type", true_param) |> tibble::as_tibble()
+orig_coverage <- compute_coverage_stats(dt, "type", true_param) |> tibble::as_tibble()
 
-# 2. Bootstrap Statistics
-boot_map <- data.table::data.table(
-    .boot = rep(seq_len(DEFAULT_N_BOOT_REPS), each = length(iters)),
-    sim_iter = sample(
-        iters,
-        length(iters) * DEFAULT_N_BOOT_REPS,
-        replace = TRUE
+# 2. Chunked Bootstrap (memory-efficient: processes in batches instead of all at once)
+chunk_size <- 500L
+n_chunks <- ceiling(DEFAULT_N_BOOT_REPS / chunk_size)
+
+boot_results <- purrr::map(seq_len(n_chunks), \(chunk_idx) {
+    start_rep <- (chunk_idx - 1L) * chunk_size + 1L
+    end_rep <- min(chunk_idx * chunk_size, DEFAULT_N_BOOT_REPS)
+    n_reps <- end_rep - start_rep + 1L
+
+    chunk_map <- data.table::data.table(
+        .boot = rep(seq(start_rep, end_rep), each = length(iters)),
+        sim_iter = sample(iters, length(iters) * n_reps, replace = TRUE)
     )
-)
 
-boot_samples <- dt[boot_map, on = "sim_iter", allow.cartesian = TRUE] |>
-    compute_stats(c(".boot", "type"), true_param) |>
+    # Single join per chunk, compute all stats
+    joined <- dt[chunk_map, on = "sim_iter", allow.cartesian = TRUE]
+
+    list(
+        stats = compute_stats(joined, c(".boot", "type"), true_param),
+        accuracy = compute_accuracy_stats(joined, c(".boot", "type"), true_param),
+        coverage = compute_coverage_stats(joined, c(".boot", "type"), true_param)
+    )
+}, .progress = TRUE)
+
+# Combine chunks
+boot_samples <- purrr::map(boot_results, "stats") |>
+    data.table::rbindlist() |>
     tibble::as_tibble()
 
-# 3. Accuracy Statistics (RMSE, MAE)
-orig_accuracy <- compute_accuracy_stats(dt, "type", true_param) |>
+boot_accuracy <- purrr::map(boot_results, "accuracy") |>
+    data.table::rbindlist() |>
     tibble::as_tibble()
 
-boot_accuracy <- dt[boot_map, on = "sim_iter", allow.cartesian = TRUE] |>
-    compute_accuracy_stats(c(".boot", "type"), true_param) |>
-    tibble::as_tibble()
-
-# 4. Coverage Statistics
-orig_coverage <- compute_coverage_stats(dt, "type", true_param) |>
-    tibble::as_tibble()
-
-boot_coverage <- dt[boot_map, on = "sim_iter", allow.cartesian = TRUE] |>
-    compute_coverage_stats(c(".boot", "type"), true_param) |>
+boot_coverage <- purrr::map(boot_results, "coverage") |>
+    data.table::rbindlist() |>
     tibble::as_tibble() |>
     dplyr::mutate(coverage_pct = 100 * coverage)
+
+rm(boot_results)
+invisible(gc())
 
 # ------------------------------------------------------------------------------
 # Compute percentile CIs
@@ -402,6 +411,8 @@ boot_coverage_cis <- boot_coverage |>
     dplyr::summarise(
         coverage_lower = quantile(coverage, alpha / 2, na.rm = TRUE),
         coverage_upper = quantile(coverage, 1 - alpha / 2, na.rm = TRUE),
+        ci_width_lower = quantile(ci_width_mean, alpha / 2, na.rm = TRUE),
+        ci_width_upper = quantile(ci_width_mean, 1 - alpha / 2, na.rm = TRUE),
         .by = type
     )
 
@@ -623,7 +634,8 @@ p_se_bias_boot <-
     forest_plot(
         boot_se_pct_bias,
         title = "Percent bias in Model-based SE",
-        x_lab = "Percent bias (%)"
+        x_lab = "Percent bias (%)",
+        add_vline = TRUE
     )
 
 p_bias <- boot_bias |>
@@ -704,6 +716,7 @@ p_win_prob <- win_probs |>
     ggplot(aes(y = type, x = win_pct)) +
     geom_errorbar(aes(xmin = lower, xmax = upper), width = 0.2) +
     geom_point() +
+    scale_x_continuous(limits = c(0, 100)) +
     labs(
         title = "Win Probability (Smallest Empirical SE)",
         x = "Win Probability (%)",
@@ -760,15 +773,6 @@ p_coverage <- coverage_with_cis |>
         color = "red",
         linewidth = 0.8
     ) +
-    geom_vline(
-        xintercept = c(
-            100 * DEFAULT_CI_LEVEL - 100 * DEFAULT_COVERAGE_TOLERANCE,
-            100 * DEFAULT_CI_LEVEL + 100 * DEFAULT_COVERAGE_TOLERANCE
-        ),
-        linetype = "dashed",
-        color = "orange",
-        alpha = 0.7
-    ) +
     geom_errorbar(
         aes(xmin = coverage_lower_pct, xmax = coverage_upper_pct),
         width = 0.2
@@ -778,44 +782,27 @@ p_coverage <- coverage_with_cis |>
         title = glue::glue("Coverage of {100 * DEFAULT_CI_LEVEL}% Intervals"),
         x = "Coverage (%)",
         y = "",
-        caption = glue::glue(
-            "Red line: nominal coverage | Orange: ±{100 * DEFAULT_COVERAGE_TOLERANCE}% tolerance\nBayesian: credible intervals | ACML: confidence intervals"
-        )
+        caption = "Red line: nominal coverage\nBayesian: credible intervals | ACML: confidence intervals"
     )
 
 # ------------------------------------------------------------------------------
-# Coverage vs CI Width Tradeoff
+# CI Width Forest Plot
 # ------------------------------------------------------------------------------
 
-p_coverage_width <- coverage_with_cis |>
-    ggplot(aes(x = ci_width_mean, y = coverage_pct, color = type)) +
-    geom_hline(
-        yintercept = 100 * DEFAULT_CI_LEVEL,
-        linetype = "dashed",
-        color = "red"
-    ) +
-    stat_ellipse(
-        data = boot_coverage,
-        aes(x = ci_width_mean, y = coverage_pct, fill = type),
-        geom = "polygon",
-        type = "norm",
-        level = DEFAULT_CI_LEVEL,
-        color = NA,
-        alpha = 0.2
-    ) +
-    geom_point(size = 4) +
-    ggrepel::geom_text_repel(
-        aes(label = type),
-        fontface = "bold",
-        show.legend = FALSE
-    ) +
-    labs(
-        title = "Coverage vs CI Width Tradeoff",
-        x = "Mean CI Width",
-        y = "Coverage (%)",
-        caption = "Ideal: upper-left (high coverage, narrow CI)"
-    ) +
-    theme(legend.position = "none")
+ci_width_forest_data <- coverage_with_cis |>
+    dplyr::transmute(
+        type,
+        estimate = ci_width_mean,
+        lower = ci_width_lower,
+        upper = ci_width_upper
+    )
+
+p_ci_width <- forest_plot(
+    ci_width_forest_data,
+    title = "Mean CI Width",
+    x_lab = "CI Width",
+    add_vline = FALSE
+)
 
 # ------------------------------------------------------------------------------
 # Relative Efficiency Forest Plot
@@ -830,6 +817,7 @@ p_rel_eff <- rel_eff_results |>
     ) +
     geom_point(size = 3) +
     scale_x_log10() +
+    annotation_logticks(sides = "b") +
     labs(
         title = glue::glue("Relative Efficiency vs {baseline_type}"),
         x = "Relative Efficiency (log scale)",
@@ -1067,7 +1055,7 @@ settings_grob <- grid::textGrob(
     y = 0.95,
     hjust = 0,
     vjust = 1,
-    gp = grid::gpar(fontsize = 11, fontfamily = "Helvetica")
+    gp = grid::gpar(fontsize = 11, fontfamily = "Source Code Pro")
 )
 
 p_settings <- wrap_elements(settings_grob) +
@@ -1085,7 +1073,7 @@ grid_plots <- list(
     p_rmse,
     p_mae,
     p_coverage,
-    p_coverage_width,
+    p_ci_width,
     p_rel_eff,
     p_se,
     p_se_bias_boot,

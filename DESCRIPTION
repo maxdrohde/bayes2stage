@@ -17,7 +17,6 @@ Depends:
     R (>= 4.1.0)
 Imports:
     bayesplot,
-    carrier,
     cli,
     data.table,
     dplyr,
@@ -28,7 +27,6 @@ Imports:
     lme4,
     MASS,
     MCMCvis,
-    mirai,
     mvtnorm,
     numDeriv,
     patchwork,

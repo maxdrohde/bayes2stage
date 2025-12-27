@@ -78,8 +78,8 @@ generate_data_schild_2019_supp <-
                          prob = x_prevalence)
 
       z <- gamma0 +
-           gamma1*x +
-           gamma2*x^2 +
+           gamma1 * x +
+           gamma2 * x^2 +
            stats::rnorm(n = 1L, mean = 0, sd = gamma_sd)
 
       # Generate outcome
@@ -94,13 +94,13 @@ generate_data_schild_2019_supp <-
         stats::rnorm(n = M, mean = 0, sd = error_sd)
 
       records[[i]] <-
-        data.frame(y=y,
-                   t=t,
-                   x=x,
-                   z=z,
+        data.frame(y = y,
+                   t = t,
+                   x = x,
+                   z = z,
                    rand_int = rand_effs[[1]],
                    rand_slope = rand_effs[[2]],
-                   id=i)
+                   id = i)
     }
 
     # Merge all the data frames together

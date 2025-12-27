@@ -9,10 +9,10 @@ cli::cli_h1("Merge Parquet Files")
 
 processed_dir <- "processed_data"
 fs::dir_create(processed_dir)
-cached_file <- file.path(processed_dir, "combined_data.parquet")
+cached_dataset <- file.path(processed_dir, "combined_data")
 
-if (fs::file_exists(cached_file)) {
-  cli::cli_alert_info("Cached data already exists at {.path {cached_file}}")
+if (fs::dir_exists(cached_dataset)) {
+  cli::cli_alert_info("Cached data already exists at {.path {cached_dataset}}")
 } else {
   cli::cli_alert_info("Merging all parquet files before parallel processing...")
 
@@ -60,8 +60,12 @@ if (fs::file_exists(cached_file)) {
   } else {
     cli::cli_abort("No data found in {.path ./results}.")
   }
-  cli::cli_alert("Saving merged data to {.path {cached_file}}...")
-  arrow::write_parquet(full_data, cached_file)
+  cli::cli_alert("Saving partitioned dataset to {.path {cached_dataset}}...")
+  arrow::write_dataset(
+    full_data,
+    cached_dataset,
+    partitioning = c("sim_setting", "parameter")
+  )
   cli::cli_alert_success("Done merging. Total rows: {.val {nrow(full_data)}}")
 }
 
@@ -79,10 +83,9 @@ n_cores <- tryCatch(
 cli::cli_alert_info("Starting parallel analysis with {.val {n_cores}} cores...")
 
 # Filter all_params to only include (sim_setting, parameter) combos that exist in data
-cached_data <- arrow::read_parquet(cached_file)
-available_combos <- cached_data |>
-  dplyr::distinct(sim_setting, parameter)
-rm(cached_data) # Free memory
+available_combos <- arrow::open_dataset(cached_dataset) |>
+  dplyr::distinct(sim_setting, parameter) |>
+  dplyr::collect()
 
 original_count <- nrow(all_params)
 all_params <- all_params |>

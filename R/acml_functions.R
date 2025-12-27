@@ -6,8 +6,7 @@
 #' @param rho.vc vector of correlations among the random effects.  The length should be q choose 2
 #' @param sigma.e std dev of the measurement error distribution
 #' @return V_i
-#' @export
-#'
+#' @noRd
 vi.calc <- function(zi, sigma.vc, rho.vc, sigma.e){
     SDMat.RE  <- diag(sigma.vc)
     ncolzi    <- ncol(zi) ## make sure this equals length(sigma.vc)
@@ -28,7 +27,7 @@ vi.calc <- function(zi, sigma.vc, rho.vc, sigma.e){
 #' @param mu_q a scalar for the mean value of the Q_i distribution
 #' @param sigma_q a scalar for the standard deviation of the Q_i distribution
 #' @return Not yet log transformed ascertainment correction
-#' @export
+#' @noRd
 ACi1q <- function(cutpoints, SampProb, mu_q, sigma_q){
     CDFs <- stats::pnorm(c(-Inf, cutpoints, Inf), mu_q, sigma_q)
     sum( SampProb*(CDFs[2:length(CDFs)] - CDFs[1:(length(CDFs)-1)]) )
@@ -43,7 +42,7 @@ ACi1q <- function(cutpoints, SampProb, mu_q, sigma_q){
 #' @param mu_q a 2-vector for the mean value of the bivariate Q_i distribution.
 #' @param sigma_q a 2 by 2 covariance matrix for the bivariate Q_i distribution.
 #' @return Not yet log transformed ascertainment correction
-#' @export
+#' @noRd
 ACi2q <- function(cutpoints, SampProb, mu_q, sigma_q){
     (SampProb[1]-SampProb[2])*mvtnorm::pmvnorm(lower=c(cutpoints[c(1,3)]), upper=c(cutpoints[c(2,4)]), mean=mu_q, sigma=sigma_q)[[1]] + SampProb[2]
 }
@@ -63,7 +62,7 @@ ACi2q <- function(cutpoints, SampProb, mu_q, sigma_q){
 #' @param cutpoints cutpoints defining the sampling regions. (a vector of length 2)
 #' @param SampProb Sampling probabilities from within each region (vector of length 3).
 #' @return log transformed ascertainment correction
-#' @export
+#' @noRd
 logACi1q <- function(yi, xi, zi, wi, beta, sigma.vc, rho.vc, sigma.e, cutpoints, SampProb){
     vi      <- vi.calc(zi, sigma.vc, rho.vc, sigma.e)
     mu      <- xi %*% beta
@@ -88,7 +87,7 @@ logACi1q <- function(yi, xi, zi, wi, beta, sigma.vc, rho.vc, sigma.e, cutpoints,
 #' @param cutpoints cutpoints defining the sampling regions. (a vector of length 4 c(xlow, xhigh, ylow, yhigh))
 #' @param SampProb Sampling probabilities from within each region (vector of length 2 c(central region, outlying region)).
 #' @return log transformed ascertainment correction
-#' @export
+#' @noRd
 logACi2q <- function(yi, xi, zi, wi, beta, sigma.vc, rho.vc, sigma.e, cutpoints, SampProb){
     vi      <- vi.calc(zi, sigma.vc, rho.vc, sigma.e)
     mu      <- xi %*% beta
@@ -112,8 +111,7 @@ logACi2q <- function(yi, xi, zi, wi, beta, sigma.vc, rho.vc, sigma.e, cutpoints,
 #' @param beta mean model parameter vector
 #' @param vi the variance covariance matrix (ZDZ+Sige2*I)
 #' @return subject specific contribution to the log-likelihood
-#' @export
-#'
+#' @noRd
 li.lme <- function(yi, xi, beta, vi){
     resid <- yi - xi %*% beta
     -(1/2) * (length(xi[,1])*log(2*pi) + log(det(vi)) + t(resid) %*% solve(vi) %*% resid )[1,1]
@@ -137,8 +135,7 @@ li.lme <- function(yi, xi, beta, vi){
 #' @param Weights Subject specific sampling weights.  A vector of length sum(n_i).  Not used unless using weighted Likelihood
 #' @param Keep.liC If FALSE, the function returns the conditional log likelihood across all subjects.  If TRUE, subject specific contributions and exponentiated subject specific ascertainment corrections are returned in a list.
 #' @return If Keep.liC=FALSE, conditional log likelihood.  If Keep.liC=TRUE, a two-element list that contains subject specific likelihood contributions and exponentiated ascertainment corrections.
-#' @export
-#'
+#' @noRd
 LogLikeC2 <- function(y, x, z, w.function, id, beta, sigma.vc, rho.vc, sigma.e, cutpoints, SampProb, Weights, Keep.liC=FALSE){
 
     subjectData    <- CreateSubjectData(id=id,y=y,x=x,z=z,Weights=Weights,SampProb=SampProb,cutpoints=cutpoints,w.function=w.function)
@@ -162,9 +159,7 @@ LogLikeC2 <- function(y, x, z, w.function, id, beta, sigma.vc, rho.vc, sigma.e, 
 #' @param rho.vc vector of correlations among the random effects.  The length should be q choose 2
 #' @param sigma.e std dev of the measurement error distribution
 #' @return ss contributions to the conditional log likelihood.  This is an internal function used by LogLikeC2
-#' @export
-#'
-#'
+#' @noRd
 LogLikeiC2 <- function(subjectData, beta, sigma.vc, rho.vc, sigma.e){
     yi          <- subjectData[["yi"]]
     xi          <- subjectData[["xi"]]
@@ -239,7 +234,7 @@ LogLikeiC2 <- function(subjectData, beta, sigma.vc, rho.vc, sigma.e){
 #' @return gradient of the log transformed ascertainment correction under the bivariate sampling design
 #' @importFrom numDeriv grad
 #' @importFrom mvtnorm pmvnorm
-#' @export
+#' @noRd
 logACi2q.score2 <- function(subjectData, beta, sigma.vc, rho.vc, sigma.e){
 
     yi          <- subjectData[["yi"]]
@@ -320,7 +315,7 @@ logACi2q.score2 <- function(subjectData, beta, sigma.vc, rho.vc, sigma.e){
 #' @param rho.vc vector of correlations among the random effects.  The length should be q choose 2
 #' @param sigma.e std dev of the measurement error distribution
 #' @return gradient of the log transformed ascertainment correction under univariate $Q_i$
-#' @export
+#' @noRd
 #' @importFrom stats dnorm
 logACi1q.score2 <- function(subjectData, beta, sigma.vc, rho.vc, sigma.e){
 
@@ -428,7 +423,7 @@ logACi1q.score2 <- function(subjectData, beta, sigma.vc, rho.vc, sigma.e){
 #' @param rho.vc vector of correlations among the random effects.  The length should be q choose 2
 #' @param sigma.e std dev of the measurement error distribution
 #' @return Subject specific contribution to the log-likelihood score (also returns marginal Vi=Cov(Y|X))
-#' @export
+#' @noRd
 li.lme.score2 <- function(subjectData, beta, sigma.vc, rho.vc, sigma.e){
     yi          <- subjectData[["yi"]]
     xi          <- subjectData[["xi"]]
@@ -521,7 +516,7 @@ li.lme.score2 <- function(subjectData, beta, sigma.vc, rho.vc, sigma.e){
 #' @param Weights Subject specific sampling weights.  A vector of length sum(n_i).  Not used unless using weighted Likelihood
 #' @param CheeseCalc If FALSE, the function returns the gradient of the conditional log likelihood across all subjects.  If TRUE, the cheese part of the sandwich esitmator is calculated.
 #' @return If CheeseCalc=FALSE, gradient of conditional log likelihood.  If CheeseCalc=TRUE, the cheese part of the sandwich estimator is calculated.
-#' @export
+#' @noRd
 LogLikeC.Score2 <- function(y, x, z, w.function, id, beta, sigma.vc, rho.vc, sigma.e, cutpoints, SampProb, Weights, CheeseCalc=FALSE){
     param.vec <- c(beta, log(sigma.vc),log((1+rho.vc)/(1-rho.vc)),log(sigma.e))
     #print(c("blahblah", param.vec))
@@ -586,7 +581,7 @@ LogLikeC.Score2 <- function(y, x, z, w.function, id, beta, sigma.vc, rho.vc, sig
 #'                   while fixing these columns at the values of `params[ProfileCol]`
 #' @param Keep.liC If TRUE outputs subject specific conditional log lileihoods to be used for the imputation procedure described in the AOAS paper keep z sum(n_i) by 2 design matric for random effects (intercept and slope)
 #' @return The conditional log likelihood with a "gradient" attribute (if Keep.liC=FALSE) and subject specific contributions to the conditional likelihood if Keep.liC=TRUE).
-#' @export
+#' @noRd
 LogLikeCAndScore2 <- function(params, y, x, z, id, w.function, cutpoints, SampProb, Weights, ProfileCol=NA, Keep.liC=FALSE){
     npar   <- length(params)
 
@@ -647,7 +642,7 @@ LogLikeCAndScore2 <- function(params, y, x, z, id, w.function, cutpoints, SampPr
 #' @importFrom stats na.omit
 #' @importFrom stats nlm
 #' @importFrom stats pnorm
-#' @export
+#' @noRd
 acml.lmem2 <- function(formula.fixed,
                        formula.random,
                        data,
@@ -765,7 +760,7 @@ acml.lmem2 <- function(formula.fixed,
 #' @param SampProb A matrix with the first dimension equal to sum(n_i).   Sampling probabilities from within each region (bivariate Q_i: each row is a vector of length 2 c(central region, outlying region); univariate Q_i: each row is a vector of length 3 with sampling probabilities for each region). Each subject should have n_i rows of the same values.
 #' @param w.function sum(n_i) vector with possible values that include "mean" "intercept" "slope" and "bivar."  There should be one unique value per subject
 #' @param cutpoints A matrix with the first dimension equal to sum(n_i).  These cutpoints define the sampling regions (bivariate Q_i: each row is a vector of length 4 c(xlow, xhigh, ylow, yhigh); univariate Q_i: each row is a vector of length 2 c(k1,k2) to define the sampling regions, i.e., low, middle, high).  Each subject should have n_i rows of the same values.
-#' @export
+#' @noRd
 CreateSubjectData <- function(id,y,x,z,Weights,SampProb,cutpoints,w.function){
     id.tmp        <- split(id,id)
     y.tmp         <- split(y,id)
