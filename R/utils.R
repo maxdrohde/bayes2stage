@@ -74,8 +74,16 @@ model_summary <- function(object, ...) {
 #' @rdname model_summary
 #' @export
 model_summary.CmdStanMCMC <- function(object, ...) {
+    draws <- posterior::as_draws_array(object$draws())
+    available <- posterior::variables(draws)
+    key_params <- intersect(get_key_parameters(), available)
+
+    if (length(key_params) == 0L) {
+        cli::cli_abort("No key parameters found in model output")
+    }
+
     out <- object$summary(
-        variables = get_key_parameters(),
+        variables = key_params,
         mean, median, sd,
         ~quantile(.x, probs = c(0.025, 0.05, 0.5, 0.95, 0.975)),
         posterior::rhat, posterior::ess_bulk, posterior::ess_tail
@@ -105,8 +113,16 @@ model_summary.CmdStanMCMC <- function(object, ...) {
 #' @rdname model_summary
 #' @export
 model_summary.CmdStanPathfinder <- function(object, ...) {
+    draws <- posterior::as_draws_array(object$draws())
+    available <- posterior::variables(draws)
+    key_params <- intersect(get_key_parameters(), available)
+
+    if (length(key_params) == 0L) {
+        cli::cli_abort("No key parameters found in model output")
+    }
+
     out <- object$summary(
-        variables = get_key_parameters(),
+        variables = key_params,
         mean, median, sd,
         ~quantile(.x, probs = c(0.025, 0.05, 0.5, 0.95, 0.975))
     ) |>
@@ -134,8 +150,16 @@ model_summary.CmdStanPathfinder <- function(object, ...) {
 #' @rdname model_summary
 #' @export
 model_summary.CmdStanLaplace <- function(object, ...) {
+    draws <- posterior::as_draws_array(object$draws())
+    available <- posterior::variables(draws)
+    key_params <- intersect(get_key_parameters(), available)
+
+    if (length(key_params) == 0L) {
+        cli::cli_abort("No key parameters found in model output")
+    }
+
     out <- object$summary(
-        variables = get_key_parameters(),
+        variables = key_params,
         mean, median, sd,
         ~quantile(.x, probs = c(0.025, 0.05, 0.5, 0.95, 0.975))
     ) |>

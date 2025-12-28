@@ -10,13 +10,14 @@ fit_stan_model(
   imputation_model_formula,
   imputation_distribution = c("normal", "bernoulli", "beta_binomial",
     "negative_binomial"),
-  parameterization = c("noncentered", "centered", "marginalized"),
+  parameterization = c("noncentered", "centered", "marginalized", "marginalized_mixture"),
   inference_method = c("mcmc", "pathfinder", "laplace", "optimize"),
   pathfinder_draws = 1000L,
   pathfinder_num_paths = 4L,
   laplace_draws = 1000L,
   optimize_algorithm = c("lbfgs", "bfgs", "newton"),
   optimize_iter = 2000L,
+  mixture_components = 3L,
   use_pathfinder_init = FALSE,
   n_chains = 4L,
   iter_warmup = 1000L,
@@ -50,6 +51,9 @@ for bounded count data, or "negative_binomial" for unbounded count data
 Eliminates funnel geometry but has O(G * n_g^3) likelihood cost per subject.
 Best for datasets with sampling issues. Available for all distributions.
 Note: Beta-binomial marginalized requires all subjects have the same n_trials.
+\item "marginalized_mixture": Like "marginalized" but models x with a mixture of
+normals for multimodal distributions. Only available for normal imputation.
+Requires specifying \code{mixture_components}.
 }}
 
 \item{inference_method}{Inference method to use:
@@ -75,6 +79,9 @@ uncertainty quantification. Returns CmdStanMLE object (no posterior draws).
 "lbfgs" (default), "bfgs", or "newton"}
 
 \item{optimize_iter}{Maximum iterations for optimization (default: 2000L)}
+
+\item{mixture_components}{Number of mixture components for the imputation model
+when using \code{parameterization = "marginalized_mixture"} (default: 3L)}
 
 \item{use_pathfinder_init}{Logical; if TRUE, use Pathfinder variational inference
 to initialize MCMC chains. Only applies when \code{inference_method = "mcmc"}.
