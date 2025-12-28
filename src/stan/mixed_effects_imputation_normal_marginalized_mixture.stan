@@ -1,28 +1,25 @@
 // Mixed Effects Model with Fully Marginalized Random Effects AND Missing X
+// with MIXTURE OF NORMALS for the imputation model
 //
 // This model integrates out BOTH:
 //   1. Random effects (analytically via MVN)
-//   2. Missing continuous x values (analytically via Gaussian conjugacy)
+//   2. Missing continuous x values (analytically via Gaussian mixture)
 //
 // Result: ZERO latent variables
 //
-// For subjects with missing x:
-//   If μ(x) = c + x*d and x ~ N(μ_x, σ²_x), then:
-//   y ~ MVN(c + μ_x*d, V + σ²_x*d*d')
+// For subjects with missing x and mixture model:
+//   x ~ Σ_k π_k * N(μ_k, σ²_k)
+//   p(y | x missing) = Σ_k π_k * p(y | x ~ N(μ_k, σ²_k))
 //
-// This is a rank-1 update to the covariance matrix.
-//
-// OPTIMIZATION: Uses Woodbury identity to avoid O(n³) Cholesky recomputation.
-//   For the augmented covariance V_aug = V + σ²_x*d*d':
-//   - Determinant lemma: log|V_aug| = log|V| + log(1 + σ²_x * d'V⁻¹d)
-//   - Woodbury identity: V_aug⁻¹ = V⁻¹ - σ²_x/(1 + σ²_x*d'V⁻¹d) * (V⁻¹d)(V⁻¹d)'
-//   This reduces per-subject complexity from O(n³) to O(n²).
+// Each component contributes a marginalized MVN:
+//   y | component k ~ MVN(c + μ_k*d, V + σ²_k*d*d')
 //
 // Trade-off:
-//   - Eliminates ALL latent variables (no funnel, perfect mixing)
-//   - Efficient O(n²) computation via Woodbury identity
+//   - More flexible imputation model for multimodal x distributions
+//   - Computation scales with number of mixture components
+//   - Still eliminates ALL latent variables
 //
-// Best for: Large G with continuous x causing mixing problems
+// Best for: Large G with continuous x that has multimodal distribution
 
 functions {
     /**
@@ -62,7 +59,9 @@ functions {
      *   - Determinant lemma: log|V + σ²dd'| = log|V| + log(1 + σ² d'V⁻¹d)
      *   - Woodbury identity: (V + σ²dd')⁻¹ = V⁻¹ - σ²/(1 + σ²d'V⁻¹d) (V⁻¹d)(V⁻¹d)'
      *
-     * Complexity: O(n) given precomputed quantities, vs O(n³) for Cholesky update
+     * Truly O(n) per component when all precomputation is done:
+     *   - z = L\d, w_base = L\(y-c), z_norm_sq, log_det_V computed once
+     *   - For component k: w_k = w_base - μ_k*z is O(n), then dot products O(n)
      *
      * @param w Precomputed L \ r where r = y - mu (length n)
      * @param z Precomputed L \ d (length n)
@@ -120,6 +119,9 @@ data {
     // Subject start position and length (for ragged array access)
     array[G] int<lower=1> pos;              // Start index for subject g
     array[G] int<lower=1> len;              // Number of obs for subject g
+
+    // Mixture model settings
+    int<lower=2> K;                         // Number of mixture components
 }
 
 parameters {
@@ -135,10 +137,12 @@ parameters {
     vector[P] beta;
     real<lower=0> sigma_main;
 
-    // Imputation model
-    real alpha_imputation;
-    vector[S] gamma;
-    real<lower=0> sigma_imputation;
+    // Mixture imputation model
+    simplex[K] theta;                       // Mixture proportions
+    real alpha_imputation;                  // Intercept (overall mean of mixture)
+    vector[S] gamma;                        // Covariate effects (shared across components)
+    ordered[K] mu_component_raw;            // Ordered component offsets (unconstrained)
+    vector<lower=0>[K] sigma_component;     // Component-specific standard deviations
 
     // NOTE: No x_mis parameters! Continuous x is marginalized out.
     // NOTE: No z_re parameters! Random effects are marginalized out.
@@ -148,8 +152,15 @@ transformed parameters {
     // Cholesky factor of RE covariance: L_Sigma = diag(sigma_re) * L_corr
     matrix[2, 2] L_Sigma = diag_pre_multiply(sigma_re, L_re);
 
-    // Imputation model linear predictor (E[x] for each subject)
-    vector[G] x_imputation_mean = alpha_imputation + Z * gamma;
+    // Center mu_component at zero while preserving ordering
+    // This ensures identifiability: alpha_imputation captures overall mean,
+    // mu_component captures deviations with sum(mu_component) = 0
+    // Ordering is preserved since we subtract a constant from all elements
+    vector[K] mu_component = mu_component_raw - mean(mu_component_raw);
+
+    // Imputation model: subject-specific base mean (before component offset)
+    // For component k: mean = x_base_mean[g] + mu_component[k]
+    vector[G] x_base_mean = alpha_imputation + Z * gamma;
 }
 
 model {
@@ -169,18 +180,20 @@ model {
     beta_x ~ normal(0, 100);
     beta_x_t_interaction ~ normal(0, 100);
 
-    // Imputation model priors
-    sigma_imputation ~ exponential(0.1);
-    alpha_imputation ~ normal(0, 100);
+    // Mixture imputation model priors
+    theta ~ dirichlet(rep_vector(2.0, K));  // Slightly informative prior toward equal weights
+    alpha_imputation ~ normal(0, 100);      // Overall mean of mixture
     gamma ~ normal(0, 100);
+    mu_component_raw ~ normal(0, 10);       // Component offsets (ordering enforced by constraint)
+    sigma_component ~ exponential(0.1);
 
     // =========================================================================
     // Likelihood for Subjects with OBSERVED x
     // =========================================================================
 
-    for (k in 1:G_obs) {
-        int g = index_obs[k];
-        real x_g = x_obs[k];
+    for (k_subj in 1:G_obs) {
+        int g = index_obs[k_subj];
+        real x_g = x_obs[k_subj];
         int n_g = len[g];
         int start_idx = pos[g];
 
@@ -207,23 +220,31 @@ model {
         // Outcome likelihood
         y_g ~ multi_normal_cholesky(mu_g, L_V);
 
-        // Imputation model likelihood for observed x
-        x_g ~ normal(x_imputation_mean[g], sigma_imputation);
+        // Mixture imputation model likelihood for observed x
+        // p(x_g) = Σ_k θ_k * N(x_g | μ_gk, σ_k)
+        vector[K] lps;
+        for (k_comp in 1:K) {
+            real mu_gk = x_base_mean[g] + mu_component[k_comp];
+            lps[k_comp] = log(theta[k_comp]) + normal_lpdf(x_g | mu_gk, sigma_component[k_comp]);
+        }
+        target += log_sum_exp(lps);
     }
 
     // =========================================================================
     // Likelihood for Subjects with MISSING x (Fully Marginalized)
     // =========================================================================
     //
-    // For these subjects, we integrate out x analytically:
-    //   μ(x) = c + x*d  where x ~ N(μ_x, σ²_x)
-    //   E[y] = c + μ_x * d
-    //   Cov(y) = V + σ²_x * d * d'  (rank-1 update)
+    // For these subjects with mixture model on x:
+    //   p(y | x missing) = Σ_k θ_k * p(y | x ~ N(μ_gk, σ²_k))
     //
-    // Uses Woodbury identity for O(n²) complexity instead of O(n³) Cholesky update.
+    // Each component contributes:
+    //   E[y | component k] = c + μ_gk * d
+    //   Cov(y | component k) = V + σ²_k * d * d'
+    //
+    // Uses Woodbury identity for O(n) per component instead of O(n²) Cholesky update.
 
-    for (k in 1:G_mis) {
-        int g = index_mis[k];
+    for (k_subj in 1:G_mis) {
+        int g = index_mis[k_subj];
         int n_g = len[g];
         int start_idx = pos[g];
 
@@ -241,93 +262,114 @@ model {
         // x coefficient vector: d[i] = beta_x + beta_x_t * t[i]
         vector[n_g] d_g = rep_vector(beta_x, n_g) + beta_x_t_interaction * t_g;
 
-        // Marginal mean: E[y] = c + E[x] * d
-        real mu_x = x_imputation_mean[g];
-        vector[n_g] mu_g = c_g + mu_x * d_g;
-
         // Base marginal covariance (integrating out RE)
         matrix[n_g, n_g] L_V = compute_marginal_cov_chol(t_g, L_Sigma, sigma_main);
 
-        // Precompute quantities for Woodbury identity (O(n²) total)
+        // Precompute quantities for Woodbury identity (O(n²) once, then O(n) per component)
         vector[n_g] z = mdivide_left_tri_low(L_V, d_g);       // z = L \ d
         real z_norm_sq = dot_self(z);                         // ||z||² = d' V⁻¹ d
         real log_det_V = 2 * sum(log(diagonal(L_V)));         // log|V|
-        vector[n_g] r = y_g - mu_g;                           // residual
-        vector[n_g] w = mdivide_left_tri_low(L_V, r);         // w = L \ r
+        vector[n_g] r_base = y_g - c_g;                       // Base residual
+        vector[n_g] w_base = mdivide_left_tri_low(L_V, r_base); // w_base = L \ (y - c)
 
-        // Marginal likelihood using Woodbury identity (O(n) instead of O(n³))
-        target += mvn_rank1_woodbury_lpdf(w | z, z_norm_sq, log_det_V,
-                                          sigma_imputation, n_g);
+        // Marginalize over mixture components using Woodbury (truly O(n) per component)
+        // Key: L \ (r_base - μ*d) = w_base - μ*z by linearity
+        vector[K] lps;
+        for (k_comp in 1:K) {
+            real mu_gk = x_base_mean[g] + mu_component[k_comp];
+
+            // w_k = L \ r_k = L \ (r_base - μ_gk * d) = w_base - μ_gk * z  (O(n))
+            vector[n_g] w_k = w_base - mu_gk * z;
+
+            // Log-probability using Woodbury identity (O(n) - just dot products)
+            lps[k_comp] = log(theta[k_comp]) +
+                          mvn_rank1_woodbury_lpdf(w_k | z, z_norm_sq, log_det_V,
+                                                   sigma_component[k_comp], n_g);
+        }
+
+        // Marginal likelihood (log-sum-exp over components)
+        target += log_sum_exp(lps);
     }
 }
 
-// generated quantities {
-//     // Correlation matrix for random effects
-//     corr_matrix[2] corr_rand_effects = multiply_lower_tri_self_transpose(L_re);
-//
-//     // Covariance matrix for random effects
-//     cov_matrix[2] cov_rand_effects = quad_form_diag(corr_rand_effects, sigma_re);
-//
-//     // Log likelihood for LOO-CV (per subject)
-//     vector[G] log_lik;
-//
-//     // Compute log likelihoods for observed subjects
-//     for (k in 1:G_obs) {
-//         int g = index_obs[k];
-//         real x_g = x_obs[k];
-//         int n_g = len[g];
-//         int start_idx = pos[g];
-//
-//         vector[n_g] y_g = segment(y, start_idx, n_g);
-//         vector[n_g] t_g = segment(t, start_idx, n_g);
-//
-//         vector[n_g] c_g;
-//         for (i in 1:n_g) {
-//             int obs_idx = start_idx + i - 1;
-//             c_g[i] = alpha_main + beta_t * t_g[i] + dot_product(X[obs_idx], beta);
-//         }
-//         vector[n_g] d_g = rep_vector(beta_x, n_g) + beta_x_t_interaction * t_g;
-//         vector[n_g] mu_g = c_g + x_g * d_g;
-//
-//         matrix[n_g, n_g] L_V = compute_marginal_cov_chol(t_g, L_Sigma, sigma_main);
-//
-//         real lp_y = multi_normal_cholesky_lpdf(y_g | mu_g, L_V);
-//         real lp_x = normal_lpdf(x_g | x_imputation_mean[g], sigma_imputation);
-//
-//         log_lik[g] = lp_y + lp_x;
-//     }
-//
-//     // Compute log likelihoods for missing subjects (using Woodbury identity)
-//     for (k in 1:G_mis) {
-//         int g = index_mis[k];
-//         int n_g = len[g];
-//         int start_idx = pos[g];
-//
-//         vector[n_g] y_g = segment(y, start_idx, n_g);
-//         vector[n_g] t_g = segment(t, start_idx, n_g);
-//
-//         vector[n_g] c_g;
-//         for (i in 1:n_g) {
-//             int obs_idx = start_idx + i - 1;
-//             c_g[i] = alpha_main + beta_t * t_g[i] + dot_product(X[obs_idx], beta);
-//         }
-//         vector[n_g] d_g = rep_vector(beta_x, n_g) + beta_x_t_interaction * t_g;
-//
-//         real mu_x = x_imputation_mean[g];
-//         vector[n_g] mu_g = c_g + mu_x * d_g;
-//
-//         matrix[n_g, n_g] L_V = compute_marginal_cov_chol(t_g, L_Sigma, sigma_main);
-//
-//         // Precompute for Woodbury
-//         vector[n_g] z = mdivide_left_tri_low(L_V, d_g);
-//         real z_norm_sq = dot_self(z);
-//         real log_det_V = 2 * sum(log(diagonal(L_V)));
-//         vector[n_g] r = y_g - mu_g;
-//         vector[n_g] w = mdivide_left_tri_low(L_V, r);
-//
-//         // Marginal log likelihood using Woodbury identity
-//         log_lik[g] = mvn_rank1_woodbury_lpdf(w | z, z_norm_sq, log_det_V,
-//                                              sigma_imputation, n_g);
-//     }
-// }
+generated quantities {
+    // Correlation matrix for random effects
+    corr_matrix[2] corr_rand_effects = multiply_lower_tri_self_transpose(L_re);
+
+    // Covariance matrix for random effects
+    cov_matrix[2] cov_rand_effects = quad_form_diag(corr_rand_effects, sigma_re);
+
+    // Log likelihood for LOO-CV (per subject)
+    vector[G] log_lik;
+
+    // Compute log likelihoods for observed subjects
+    for (k_subj in 1:G_obs) {
+        int g = index_obs[k_subj];
+        real x_g = x_obs[k_subj];
+        int n_g = len[g];
+        int start_idx = pos[g];
+
+        vector[n_g] y_g = segment(y, start_idx, n_g);
+        vector[n_g] t_g = segment(t, start_idx, n_g);
+
+        vector[n_g] c_g;
+        for (i in 1:n_g) {
+            int obs_idx = start_idx + i - 1;
+            c_g[i] = alpha_main + beta_t * t_g[i] + dot_product(X[obs_idx], beta);
+        }
+        vector[n_g] d_g = rep_vector(beta_x, n_g) + beta_x_t_interaction * t_g;
+        vector[n_g] mu_g = c_g + x_g * d_g;
+
+        matrix[n_g, n_g] L_V = compute_marginal_cov_chol(t_g, L_Sigma, sigma_main);
+
+        real lp_y = multi_normal_cholesky_lpdf(y_g | mu_g, L_V);
+
+        // Mixture log-likelihood for x
+        vector[K] lps_x;
+        for (k_comp in 1:K) {
+            real mu_gk = x_base_mean[g] + mu_component[k_comp];
+            lps_x[k_comp] = log(theta[k_comp]) + normal_lpdf(x_g | mu_gk, sigma_component[k_comp]);
+        }
+        real lp_x = log_sum_exp(lps_x);
+
+        log_lik[g] = lp_y + lp_x;
+    }
+
+    // Compute log likelihoods for missing subjects (using Woodbury identity)
+    for (k_subj in 1:G_mis) {
+        int g = index_mis[k_subj];
+        int n_g = len[g];
+        int start_idx = pos[g];
+
+        vector[n_g] y_g = segment(y, start_idx, n_g);
+        vector[n_g] t_g = segment(t, start_idx, n_g);
+
+        vector[n_g] c_g;
+        for (i in 1:n_g) {
+            int obs_idx = start_idx + i - 1;
+            c_g[i] = alpha_main + beta_t * t_g[i] + dot_product(X[obs_idx], beta);
+        }
+        vector[n_g] d_g = rep_vector(beta_x, n_g) + beta_x_t_interaction * t_g;
+
+        matrix[n_g, n_g] L_V = compute_marginal_cov_chol(t_g, L_Sigma, sigma_main);
+
+        // Precompute for Woodbury
+        vector[n_g] z = mdivide_left_tri_low(L_V, d_g);
+        real z_norm_sq = dot_self(z);
+        real log_det_V = 2 * sum(log(diagonal(L_V)));
+        vector[n_g] r_base = y_g - c_g;
+        vector[n_g] w_base = mdivide_left_tri_low(L_V, r_base);
+
+        vector[K] lps;
+        for (k_comp in 1:K) {
+            real mu_gk = x_base_mean[g] + mu_component[k_comp];
+            vector[n_g] w_k = w_base - mu_gk * z;
+            lps[k_comp] = log(theta[k_comp]) +
+                          mvn_rank1_woodbury_lpdf(w_k | z, z_norm_sq, log_det_V,
+                                                   sigma_component[k_comp], n_g);
+        }
+
+        log_lik[g] = log_sum_exp(lps);
+    }
+}
 

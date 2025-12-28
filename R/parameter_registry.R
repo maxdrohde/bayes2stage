@@ -30,7 +30,11 @@ get_parameter_registry <- function() {
         "gamma2",               "gamma[2]",             "Gamma_2",                NA_character_,
         "gamma_sd",             "sigma_imputation",     "Error SD (Imputation)",  NA_character_,
         "x_disp_param",         "phi",                  "Dispersion (phi)",       NA_character_,
-        "x_disp_param",         "phi_imputation",       "Dispersion (phi)",       NA_character_
+        "x_disp_param",         "phi_imputation",       "Dispersion (phi)",       NA_character_,
+        # Mixture model parameters (marginalized_mixture only)
+        NA_character_,          "theta",                "Mixture Proportions",    NA_character_,
+        NA_character_,          "mu_component",         "Mixture Component Means", NA_character_,
+        NA_character_,          "sigma_component",      "Mixture Component SDs",   NA_character_
     )
     return(result)
 }

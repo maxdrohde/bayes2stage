@@ -172,6 +172,9 @@ run_mcmc <- function(mod, data_list, seed, n_chains, parallel_chains,
 #'     Eliminates funnel geometry but has O(G * n_g^3) likelihood cost per subject.
 #'     Best for datasets with sampling issues. Available for all distributions.
 #'     Note: Beta-binomial marginalized requires all subjects have the same n_trials.
+#'   - "marginalized_mixture": Like "marginalized" but models x with a mixture of
+#'     normals for multimodal distributions. Only available for normal imputation.
+#'     Requires specifying `mixture_components`.
 #' @param inference_method Inference method to use:
 #'   - "mcmc" (default): Full MCMC sampling via NUTS. Most accurate but slowest.
 #'   - "pathfinder": Variational inference via Pathfinder algorithm. Fast approximate
@@ -188,6 +191,8 @@ run_mcmc <- function(mod, data_list, seed, n_chains, parallel_chains,
 #' @param optimize_algorithm Optimization algorithm for MAP estimation:
 #'   "lbfgs" (default), "bfgs", or "newton"
 #' @param optimize_iter Maximum iterations for optimization (default: 2000L)
+#' @param mixture_components Number of mixture components for the imputation model
+#'   when using `parameterization = "marginalized_mixture"` (default: 3L)
 #' @param use_pathfinder_init Logical; if TRUE, use Pathfinder variational inference
 #'   to initialize MCMC chains. Only applies when `inference_method = "mcmc"`.
 #'   This can dramatically improve sampling efficiency for complex models with
@@ -212,7 +217,8 @@ fit_stan_model <- function(data,
                                                        "negative_binomial"),
                            parameterization = c("noncentered",
                                                 "centered",
-                                                "marginalized"),
+                                                "marginalized",
+                                                "marginalized_mixture"),
                            inference_method = c("mcmc",
                                                 "pathfinder",
                                                 "laplace",
@@ -222,6 +228,7 @@ fit_stan_model <- function(data,
                            laplace_draws = 1000L,
                            optimize_algorithm = c("lbfgs", "bfgs", "newton"),
                            optimize_iter = 2000L,
+                           mixture_components = 3L,
                            use_pathfinder_init = FALSE,
                            n_chains = 4L,
                            iter_warmup = 1000L,
@@ -240,11 +247,28 @@ fit_stan_model <- function(data,
                                   imputation_model_formula = imputation_model_formula,
                                   imputation_distribution = imputation_distribution)
 
+    # Validate marginalized_mixture requirements
+    if (parameterization == "marginalized_mixture") {
+        if (imputation_distribution != "normal") {
+            cli::cli_abort(c(
+                "`parameterization = \"marginalized_mixture\"` only supports normal imputation.",
+                "x" = "Current imputation_distribution: {imputation_distribution}",
+                "i" = "Use `imputation_distribution = \"normal\"` with marginalized_mixture."
+            ))
+        }
+        if (mixture_components < 2L) {
+            cli::cli_abort("`mixture_components` must be at least 2.")
+        }
+        data_list$K <- as.integer(mixture_components)
+    }
+
     model_name <- glue::glue("mixed_effects_imputation_{imputation_distribution}")
     if (parameterization == "centered") {
         model_name <- glue::glue("{model_name}_centered")
     } else if (parameterization == "marginalized") {
         model_name <- glue::glue("{model_name}_marginalized")
+    } else if (parameterization == "marginalized_mixture") {
+        model_name <- glue::glue("{model_name}_marginalized_mixture")
     }
 
     mod <- instantiate::stan_package_model(
