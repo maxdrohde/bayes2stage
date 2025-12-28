@@ -75,7 +75,7 @@ model_summary <- function(object, ...) {
 #' @export
 model_summary.CmdStanMCMC <- function(object, ...) {
     out <- object$summary(
-        NULL,
+        variables = get_key_parameters(),
         mean, median, sd,
         ~quantile(.x, probs = c(0.025, 0.05, 0.5, 0.95, 0.975)),
         posterior::rhat, posterior::ess_bulk, posterior::ess_tail
@@ -106,7 +106,7 @@ model_summary.CmdStanMCMC <- function(object, ...) {
 #' @export
 model_summary.CmdStanPathfinder <- function(object, ...) {
     out <- object$summary(
-        NULL,
+        variables = get_key_parameters(),
         mean, median, sd,
         ~quantile(.x, probs = c(0.025, 0.05, 0.5, 0.95, 0.975))
     ) |>
@@ -135,7 +135,7 @@ model_summary.CmdStanPathfinder <- function(object, ...) {
 #' @export
 model_summary.CmdStanLaplace <- function(object, ...) {
     out <- object$summary(
-        NULL,
+        variables = get_key_parameters(),
         mean, median, sd,
         ~quantile(.x, probs = c(0.025, 0.05, 0.5, 0.95, 0.975))
     ) |>
@@ -165,6 +165,9 @@ model_summary.CmdStanLaplace <- function(object, ...) {
 model_summary.CmdStanMLE <- function(object, ...) {
     summ <- object$summary() |>
         as.data.frame()
+
+    key_pars <- get_key_parameters()
+    summ <- summ[summ$variable %in% key_pars, ]
 
     out <- data.frame(
         parameter = summ$variable,

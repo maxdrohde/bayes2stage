@@ -96,8 +96,8 @@ Subjects not selected have their `x` values set to `NA`.
 ```{r}
 fit <- fit_stan_model(
   data = stage2_data,
-  main_model_covariates = c("x", "z", "t"),
-  imputation_model_covariates = c("z"),
+  main_model_formula = ~ x + z + t,
+  imputation_model_formula = ~ z,
   imputation_distribution = "normal",
   n_chains = 4,
   iter_warmup = 1000,

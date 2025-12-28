@@ -155,8 +155,12 @@ run_mcmc <- function(mod, data_list, seed, n_chains, parallel_chains,
 #' Fits a mixed effects model with imputation using Stan via the instantiate package.
 #'
 #' @param data A data frame containing the outcome and covariates
-#' @param main_model_covariates Character vector of covariate names for the main model
-#' @param imputation_model_covariates Character vector of covariate names for the imputation model
+#' @param main_model_formula One-sided formula or string for covariates in the
+#'   main model (e.g., `~ age + splines::ns(bmi, 3)`). Intercept is
+#'   automatically removed.
+#' @param imputation_model_formula One-sided formula or string for covariates
+#'   in the imputation model (e.g., `~ age + factor(site)`). Intercept is
+#'   automatically removed.
 #' @param imputation_distribution Distribution for the imputation model:
 #'   "normal" for continuous x, "bernoulli" for binary x, "beta_binomial"
 #'   for bounded count data, or "negative_binomial" for unbounded count data
@@ -200,8 +204,8 @@ run_mcmc <- function(mod, data_list, seed, n_chains, parallel_chains,
 #'   support `$draws()` for posterior samples.
 #' @export
 fit_stan_model <- function(data,
-                           main_model_covariates,
-                           imputation_model_covariates,
+                           main_model_formula,
+                           imputation_model_formula,
                            imputation_distribution = c("normal",
                                                        "bernoulli",
                                                        "beta_binomial",
@@ -232,8 +236,8 @@ fit_stan_model <- function(data,
     optimize_algorithm <- match.arg(optimize_algorithm)
 
     data_list <- format_data_mcmc(data,
-                                  main_model_covariates = main_model_covariates,
-                                  imputation_model_covariates = imputation_model_covariates,
+                                  main_model_formula = main_model_formula,
+                                  imputation_model_formula = imputation_model_formula,
                                   imputation_distribution = imputation_distribution)
 
     model_name <- glue::glue("mixed_effects_imputation_{imputation_distribution}")

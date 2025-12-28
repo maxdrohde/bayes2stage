@@ -60,11 +60,10 @@ if (fs::dir_exists(cached_dataset)) {
   } else {
     cli::cli_abort("No data found in {.path ./results}.")
   }
-  cli::cli_alert("Saving partitioned dataset to {.path {cached_dataset}}...")
+  cli::cli_alert("Saving dataset to {.path {cached_dataset}}...")
   arrow::write_dataset(
     full_data,
-    cached_dataset,
-    partitioning = c("sim_setting", "parameter")
+    cached_dataset
   )
   cli::cli_alert_success("Done merging. Total rows: {.val {nrow(full_data)}}")
 }

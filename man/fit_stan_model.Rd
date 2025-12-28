@@ -6,8 +6,8 @@
 \usage{
 fit_stan_model(
   data,
-  main_model_covariates,
-  imputation_model_covariates,
+  main_model_formula,
+  imputation_model_formula,
   imputation_distribution = c("normal", "bernoulli", "beta_binomial",
     "negative_binomial"),
   parameterization = c("noncentered", "centered", "marginalized"),
@@ -29,9 +29,13 @@ fit_stan_model(
 \arguments{
 \item{data}{A data frame containing the outcome and covariates}
 
-\item{main_model_covariates}{Character vector of covariate names for the main model}
+\item{main_model_formula}{One-sided formula or string for covariates in the
+main model (e.g., \code{~ age + splines::ns(bmi, 3)}). Intercept is
+automatically removed.}
 
-\item{imputation_model_covariates}{Character vector of covariate names for the imputation model}
+\item{imputation_model_formula}{One-sided formula or string for covariates
+in the imputation model (e.g., \code{~ age + factor(site)}). Intercept is
+automatically removed.}
 
 \item{imputation_distribution}{Distribution for the imputation model:
 "normal" for continuous x, "bernoulli" for binary x, "beta_binomial"

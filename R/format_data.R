@@ -1,16 +1,41 @@
+#' Prepare a formula for model matrix creation
+#'
+#' Converts string to formula if needed, validates input, and removes intercept.
+#'
+#' @param x A formula or character string
+#' @param name Name of the argument (for error messages)
+#' @return A formula with intercept suppressed
+#' @noRd
+prepare_formula <- function(x, name) {
+    if (is.null(x)) {
+        cli::cli_abort("{.arg {name}} must be provided")
+    }
+    if (is.character(x)) {
+        x <- stats::as.formula(x)
+    }
+    if (!inherits(x, "formula")) {
+        cli::cli_abort("{.arg {name}} must be a formula or string, not {.cls {class(x)}}")
+    }
+    stats::update(x, ~ . - 1)
+}
+
 #' Format the simulated data for Stan
 #'
 #' @param data Dataset to use
-#' @param main_model_covariates Character vector of column names for covariates in the main model
-#' @param imputation_model_covariates Character vector of column names for covariates in the imputation model
+#' @param main_model_formula One-sided formula or string for covariates in the
+#'   main model (e.g., `~ age + splines::ns(bmi, 3)`). Intercept is
+#'   automatically removed.
+#' @param imputation_model_formula One-sided formula or string for covariates
+#'   in the imputation model (e.g., `~ age + factor(site)`). Intercept is
+#'   automatically removed.
 #' @param imputation_distribution Distribution for the imputation model:
 #'   "normal" for continuous x, "bernoulli" for binary x, "beta_binomial"
 #'   for bounded count data, or "negative_binomial" for unbounded count data
 #' @return A list suitable for input to MCMC software
 #' @export
 format_data_mcmc <- function(data,
-                             main_model_covariates = NULL,
-                             imputation_model_covariates = NULL,
+                             main_model_formula = NULL,
+                             imputation_model_formula = NULL,
                              imputation_distribution = c("normal",
                                                          "bernoulli",
                                                          "beta_binomial",
@@ -34,8 +59,11 @@ format_data_mcmc <- function(data,
                     .keep_all = TRUE) |>
     dplyr::arrange(id_idx)
 
-  X <- as.matrix(data[, main_model_covariates, drop = FALSE])
-  Z <- as.matrix(id_df[, imputation_model_covariates, drop = FALSE])
+  main_model_formula <- prepare_formula(main_model_formula, "main_model_formula")
+  imputation_model_formula <- prepare_formula(imputation_model_formula, "imputation_model_formula")
+
+  X <- stats::model.matrix(main_model_formula, data = data, na.action = stats::na.pass)
+  Z <- stats::model.matrix(imputation_model_formula, data = id_df, na.action = stats::na.pass)
 
   P <- ncol(X)
   S <- ncol(Z)

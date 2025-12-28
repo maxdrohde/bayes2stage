@@ -26,26 +26,37 @@ theme_set(
 )
 
 # Forest plot with point estimates and CIs
-# Expects columns: type, estimate, lower, upper
-forest_plot <- function(data, title, x_lab, add_vline = FALSE) {
-    result <-
-        data |>
-        ggplot(aes(y = type, x = estimate)) +
+# Expects columns: type, estimate, lower, upper (or specify y_col, x_col, lower_col, upper_col)
+forest_plot <- function(data, title, x_lab,
+                        add_vline = FALSE,
+                        vline_pos = 0,
+                        vline_style = "dashed",
+                        vline_color = "gray",
+                        log_scale = FALSE,
+                        caption = NULL,
+                        point_size = NULL,
+                        y_col = "type",
+                        x_col = "estimate",
+                        lower_col = "lower",
+                        upper_col = "upper") {
+    result <- data |>
+        ggplot(aes(y = .data[[y_col]], x = .data[[x_col]])) +
         (if (add_vline) {
             geom_vline(
-                xintercept = 0,
-                linetype = "dashed",
-                color = "gray",
+                xintercept = vline_pos,
+                linetype = vline_style,
+                color = vline_color,
                 alpha = 0.7
             )
         }) +
         geom_errorbar(
-            aes(xmin = lower, xmax = upper),
-            width = 0.2,
-            orientation = "y"
+            aes(xmin = .data[[lower_col]], xmax = .data[[upper_col]]),
+            width = 0.2
         ) +
-        geom_point() +
-        labs(title = title, x = x_lab, y = "")
+        (if (is.null(point_size)) geom_point() else geom_point(size = point_size)) +
+        (if (log_scale) scale_x_log10()) +
+        (if (log_scale) annotation_logticks(sides = "b")) +
+        labs(title = title, x = x_lab, y = "", caption = caption)
     return(result)
 }
 
@@ -77,7 +88,6 @@ if (!fs::dir_exists(cached_dataset)) {
     )
 }
 
-# Use Arrow predicate pushdown on partitioned dataset: reads only the relevant partition
 # Each parallel worker only loads its specific (parameter, sim_setting) subset
 sim_results <- arrow::open_dataset(cached_dataset) |>
     dplyr::filter(
@@ -96,8 +106,7 @@ if (nrow(sim_results) == 0) {
 # MCMC convergence diagnostics
 # ------------------------------------------------------------------------------
 
-has_mcmc_diagnostics <- SHOW_MCMC_DIAGNOSTICS &&
-    "rhat" %in% names(sim_results) &&
+has_mcmc_diagnostics <- "rhat" %in% names(sim_results) &&
     any(!is.na(sim_results$rhat))
 
 has_hmc_diagnostics <- has_mcmc_diagnostics &&
@@ -638,33 +647,13 @@ p_se_bias_boot <-
         add_vline = TRUE
     )
 
-p_bias <- boot_bias |>
-    ggplot(aes(y = type, x = estimate)) +
-    geom_vline(
-        xintercept = 0,
-        linetype = "dashed",
-        color = "gray",
-        alpha = 0.7
-    ) +
-    geom_errorbar(
-        aes(xmin = lower, xmax = upper),
-        width = 0.2,
-        orientation = "y"
-    ) +
-    geom_point() +
-    labs(title = "Bias", y = "")
-
+p_bias <- forest_plot(boot_bias, title = "Bias", x_lab = "Bias", add_vline = TRUE)
 if (include_pct_bias) {
     p_bias <- p_bias +
         scale_x_continuous(
             name = "Bias",
-            sec.axis = sec_axis(
-                ~ . * 100 / abs(true_param),
-                name = "Percent bias (%)"
-            )
+            sec.axis = sec_axis(~ . * 100 / abs(true_param), name = "Percent bias (%)")
         )
-} else {
-    p_bias <- p_bias + labs(x = "Bias")
 }
 
 p_emp_se <- forest_plot(
@@ -678,31 +667,18 @@ p_emp_se <- forest_plot(
 # Pairwise SE difference plot
 # ------------------------------------------------------------------------------
 
-if (nrow(pairwise_se_diff) > 0) {
-    p_pairwise_se <- pairwise_se_diff |>
-        ggplot(aes(y = comparison, x = estimate)) +
-        geom_vline(
-            xintercept = 0,
-            linetype = "dashed",
-            color = "gray",
-            alpha = 0.7
-        ) +
-        geom_errorbar(aes(xmin = lower, xmax = upper), width = 0.2) +
-        geom_point() +
-        labs(
-            title = "Pairwise Differences in Empirical SE",
-            x = "Difference in Empirical SE",
-            y = ""
-        )
+p_pairwise_se <- if (nrow(pairwise_se_diff) > 0) {
+    forest_plot(
+        pairwise_se_diff,
+        title = "Pairwise Differences in Empirical SE",
+        x_lab = "Difference in Empirical SE",
+        add_vline = TRUE,
+        y_col = "comparison"
+    )
 } else {
-    p_pairwise_se <- ggplot() +
-        annotate(
-            "text",
-            x = 0.5,
-            y = 0.5,
-            label = "Fewer than 2 types\n(no pairwise comparisons)",
-            size = 4
-        ) +
+    ggplot() +
+        annotate("text", x = 0.5, y = 0.5,
+                 label = "Fewer than 2 types\n(no pairwise comparisons)", size = 4) +
         theme_void() +
         labs(title = "Pairwise Differences in Empirical SE")
 }
@@ -711,119 +687,60 @@ if (nrow(pairwise_se_diff) > 0) {
 # Win probability plot
 # ------------------------------------------------------------------------------
 
-n_types_for_plot <- length(all_types)
-p_win_prob <- win_probs |>
-    ggplot(aes(y = type, x = win_pct)) +
-    geom_errorbar(aes(xmin = lower, xmax = upper), width = 0.2) +
-    geom_point() +
-    scale_x_continuous(limits = c(0, 100)) +
-    labs(
-        title = "Win Probability (Smallest Empirical SE)",
-        x = "Win Probability (%)",
-        y = ""
-    )
+p_win_prob <- forest_plot(
+    win_probs,
+    title = "Win Probability (Smallest Empirical SE)",
+    x_lab = "Win Probability (%)",
+    x_col = "win_pct"
+) + scale_x_continuous(limits = c(0, 100))
 
 # ------------------------------------------------------------------------------
-# RMSE Forest Plot
+# RMSE, MAE, Coverage, CI Width, Relative Efficiency Forest Plots
 # ------------------------------------------------------------------------------
-
-rmse_forest_data <- accuracy_with_cis |>
-    dplyr::transmute(
-        type,
-        estimate = rmse,
-        lower = rmse_lower,
-        upper = rmse_upper
-    )
 
 p_rmse <- forest_plot(
-    rmse_forest_data,
-    title = "Root Mean Squared Error (RMSE)",
-    x_lab = "RMSE",
-    add_vline = FALSE
+    accuracy_with_cis, title = "Root Mean Squared Error (RMSE)", x_lab = "RMSE",
+    x_col = "rmse", lower_col = "rmse_lower", upper_col = "rmse_upper"
 )
-
-# ------------------------------------------------------------------------------
-# MAE Forest Plot
-# ------------------------------------------------------------------------------
-
-mae_forest_data <- accuracy_with_cis |>
-    dplyr::transmute(
-        type,
-        estimate = mae,
-        lower = mae_lower,
-        upper = mae_upper
-    )
 
 p_mae <- forest_plot(
-    mae_forest_data,
-    title = "Mean Absolute Error (MAE)",
-    x_lab = "MAE",
-    add_vline = FALSE
+    accuracy_with_cis, title = "Mean Absolute Error (MAE)", x_lab = "MAE",
+    x_col = "mae", lower_col = "mae_lower", upper_col = "mae_upper"
 )
 
-# ------------------------------------------------------------------------------
-# Coverage Forest Plot
-# ------------------------------------------------------------------------------
-
-p_coverage <- coverage_with_cis |>
-    ggplot(aes(y = type, x = coverage_pct)) +
-    geom_vline(
-        xintercept = 100 * DEFAULT_CI_LEVEL,
-        linetype = "solid",
-        color = "red",
-        linewidth = 0.8
-    ) +
-    geom_errorbar(
-        aes(xmin = coverage_lower_pct, xmax = coverage_upper_pct),
-        width = 0.2
-    ) +
-    geom_point(size = 3) +
-    labs(
-        title = glue::glue("Coverage of {100 * DEFAULT_CI_LEVEL}% Intervals"),
-        x = "Coverage (%)",
-        y = "",
-        caption = "Red line: nominal coverage\nBayesian: credible intervals | ACML: confidence intervals"
-    )
-
-# ------------------------------------------------------------------------------
-# CI Width Forest Plot
-# ------------------------------------------------------------------------------
-
-ci_width_forest_data <- coverage_with_cis |>
-    dplyr::transmute(
-        type,
-        estimate = ci_width_mean,
-        lower = ci_width_lower,
-        upper = ci_width_upper
-    )
+p_coverage <- forest_plot(
+    coverage_with_cis,
+    title = glue::glue("Coverage of {100 * DEFAULT_CI_LEVEL}% Intervals"),
+    x_lab = "Coverage (%)",
+    add_vline = TRUE,
+    vline_pos = 100 * DEFAULT_CI_LEVEL,
+    vline_style = "solid",
+    vline_color = "red",
+    point_size = 3,
+    x_col = "coverage_pct",
+    lower_col = "coverage_lower_pct",
+    upper_col = "coverage_upper_pct",
+    caption = "Red line: nominal coverage\nBayesian: credible intervals | ACML: confidence intervals"
+)
 
 p_ci_width <- forest_plot(
-    ci_width_forest_data,
-    title = "Mean CI Width",
-    x_lab = "CI Width",
-    add_vline = FALSE
+    coverage_with_cis, title = "Mean CI Width", x_lab = "CI Width",
+    x_col = "ci_width_mean", lower_col = "ci_width_lower", upper_col = "ci_width_upper"
 )
 
-# ------------------------------------------------------------------------------
-# Relative Efficiency Forest Plot
-# ------------------------------------------------------------------------------
-
-p_rel_eff <- rel_eff_results |>
-    ggplot(aes(y = type, x = rel_eff)) +
-    geom_vline(xintercept = 1, linetype = "dashed", color = "gray") +
-    geom_errorbar(
-        aes(xmin = rel_eff_lower, xmax = rel_eff_upper),
-        width = 0.2
-    ) +
-    geom_point(size = 3) +
-    scale_x_log10() +
-    annotation_logticks(sides = "b") +
-    labs(
-        title = glue::glue("Relative Efficiency vs {baseline_type}"),
-        x = "Relative Efficiency (log scale)",
-        y = "",
-        caption = ">1: more efficient than baseline | <1: less efficient"
-    )
+p_rel_eff <- forest_plot(
+    rel_eff_results,
+    title = glue::glue("Relative Efficiency vs {baseline_type}"),
+    x_lab = "Relative Efficiency (log scale)",
+    add_vline = TRUE,
+    vline_pos = 1,
+    log_scale = TRUE,
+    point_size = 3,
+    x_col = "rel_eff",
+    lower_col = "rel_eff_lower",
+    upper_col = "rel_eff_upper",
+    caption = ">1: more efficient than baseline | <1: less efficient"
+)
 
 # ------------------------------------------------------------------------------
 # Summary table
@@ -1095,19 +1012,25 @@ if (has_mcmc_diagnostics) {
 # Add the summary table to the end of the list
 grid_plots <- c(grid_plots, list(p_table))
 
-# Define layout design
-# A-K are the 11 plots
-# S is the stacked diagnostics (already in grid_plots as item 12)
-# T is the summary table (item 13)
-# 5 columns:
-# Row 1: A B C D E
-# Row 2: F G H I J
-# Row 3: K S T T T (Table takes 3 slots)
-layout_design <- "
+# Define layout design based on whether MCMC diagnostics are present
+# A-K are the 11 standard plots
+# S is the stacked diagnostics (only present when has_mcmc_diagnostics is TRUE)
+# T is the summary table
+if (has_mcmc_diagnostics) {
+    # 13 plot objects: A-K (11), S (1), T (1)
+    layout_design <- "
 ABCDE
 FGHIJ
 KSTTT
 "
+} else {
+    # 12 plot objects: A-K (11), T (1) - no S position
+    layout_design <- "
+ABCDE
+FGHIJ
+KTTTT
+"
+}
 
 # Create the grid with custom design
 p_grid <- patchwork::wrap_plots(grid_plots, design = layout_design)

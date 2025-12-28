@@ -6,8 +6,8 @@
 \usage{
 format_data_mcmc(
   data,
-  main_model_covariates = NULL,
-  imputation_model_covariates = NULL,
+  main_model_formula = NULL,
+  imputation_model_formula = NULL,
   imputation_distribution = c("normal", "bernoulli", "beta_binomial",
     "negative_binomial")
 )
@@ -15,9 +15,13 @@ format_data_mcmc(
 \arguments{
 \item{data}{Dataset to use}
 
-\item{main_model_covariates}{Character vector of column names for covariates in the main model}
+\item{main_model_formula}{One-sided formula or string for covariates in the
+main model (e.g., \code{~ age + splines::ns(bmi, 3)}). Intercept is
+automatically removed.}
 
-\item{imputation_model_covariates}{Character vector of column names for covariates in the imputation model}
+\item{imputation_model_formula}{One-sided formula or string for covariates
+in the imputation model (e.g., \code{~ age + factor(site)}). Intercept is
+automatically removed.}
 
 \item{imputation_distribution}{Distribution for the imputation model:
 "normal" for continuous x, "bernoulli" for binary x, "beta_binomial"

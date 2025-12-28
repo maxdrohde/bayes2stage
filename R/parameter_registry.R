@@ -13,6 +13,8 @@ NULL
 get_parameter_registry <- function() {
     # Note: ACML reports SDs on log scale and correlation on Fisher z scale,
     # so variance components are not directly comparable to Stan output
+    # Note: phi has two entries because centered models use "phi" while
+    # marginalized models use "phi_imputation"
     result <- tibble::tribble(
         ~grid_name,             ~stan_name,             ~display_name,            ~acml_name,
         "beta_x",               "beta_x",               "Beta x",                 "beta_x",
@@ -26,7 +28,9 @@ get_parameter_registry <- function() {
         "gamma0",               "alpha_imputation",     "Intercept (Imputation)", NA_character_,
         "gamma1",               "gamma[1]",             "Gamma_1",                NA_character_,
         "gamma2",               "gamma[2]",             "Gamma_2",                NA_character_,
-        "gamma_sd",             "sigma_imputation",     "Error SD (Imputation)",  NA_character_
+        "gamma_sd",             "sigma_imputation",     "Error SD (Imputation)",  NA_character_,
+        "x_disp_param",         "phi",                  "Dispersion (phi)",       NA_character_,
+        "x_disp_param",         "phi_imputation",       "Dispersion (phi)",       NA_character_
     )
     return(result)
 }

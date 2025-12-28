@@ -78,8 +78,8 @@ fit_model <- function(data) {
   fit_args <- c(
     list(
       data = data,
-      main_model_covariates = DEFAULT_MAIN_COVARIATES,
-      imputation_model_covariates = DEFAULT_IMPUTATION_COVARIATES,
+      main_model_formula = DEFAULT_MAIN_FORMULA,
+      imputation_model_formula = DEFAULT_IMPUTATION_FORMULA,
       imputation_distribution = DEFAULT_STAN_DISTRIBUTION,
       parameterization = DEFAULT_PARAMETERIZATION,
       seed = seed
@@ -193,28 +193,8 @@ res <- dplyr::bind_rows(results_list)
 # Add metadata to results file
 ################################################################################
 
-res$n_sampled <- n_sampled
-
 res$sim_setting <- i
 res$sim_iter <- j
-
-res$inference_method <- DEFAULT_INFERENCE_ARGS$inference_method
-res$stan_parameterization <- DEFAULT_PARAMETERIZATION
-
-# Add method-specific config metadata
-if (DEFAULT_INFERENCE_ARGS$inference_method == "mcmc") {
-  res$MCMC_iterations <- DEFAULT_INFERENCE_ARGS$iter_sampling
-  res$MCMC_burnin <- DEFAULT_INFERENCE_ARGS$iter_warmup
-  res$MCMC_chains <- DEFAULT_INFERENCE_ARGS$n_chains
-  res$MCMC_parallel_chains <- DEFAULT_INFERENCE_ARGS$parallel_chains
-  res$MCMC_adapt_delta <- DEFAULT_INFERENCE_ARGS$adapt_delta
-  res$stan_use_pathfinder <- DEFAULT_INFERENCE_ARGS$use_pathfinder_init
-}
-
-res <- dplyr::bind_cols(
-  res,
-  params[rep(1, nrow(res)), ]
-)
 
 ################################################################################
 # Save results

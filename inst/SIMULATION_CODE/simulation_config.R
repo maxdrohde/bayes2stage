@@ -73,8 +73,8 @@ DEFAULT_STAN_DISTRIBUTION <- "normal"
 DEFAULT_PARAMETERIZATION <- "marginalized"
 
 # Covariates for main outcome model and imputation model
-DEFAULT_MAIN_COVARIATES <- c("z")
-DEFAULT_IMPUTATION_COVARIATES <- c("z")
+DEFAULT_MAIN_FORMULA <- "~ z"
+DEFAULT_IMPUTATION_FORMULA <- "~ z"
 DEFAULT_BDS_FORMULA <- y ~ t + z
 
 # ==============================================================================
@@ -85,7 +85,6 @@ DEFAULT_CI_LEVEL <- 0.95
 DEFAULT_RHAT_THRESHOLD <- 1.01
 DEFAULT_ESS_THRESHOLD <- 400L
 DEFAULT_N_BOOT_REPS <- 5000L
-SHOW_MCMC_DIAGNOSTICS <- TRUE
 
 # Relative efficiency baseline
 DEFAULT_BASELINE_TYPE <- "SRS\n(no imp)"
