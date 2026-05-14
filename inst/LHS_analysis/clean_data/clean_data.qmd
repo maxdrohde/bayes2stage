@@ -1,0 +1,184 @@
+---
+title: "Clean Data"
+---
+
+```{r}
+library(tidyverse)
+library(data.table)
+```
+
+```{r}
+# Load in raw LHS data from Jonathan
+load("lhsRohde.Rdata")
+df <- lhsRohde
+```
+
+```{r}
+# Check the overall data structure
+Hmisc::describe(df)
+```
+
+## SNP columns
+
+```{r}
+# Identify the SNP columns -- start with "rs"
+snps <- select(df, dplyr::starts_with("rs"))
+```
+
+```{r}
+print(ncol(snps))
+```
+
+```{r}
+if (anyNA(snps)) {
+    cli::cli_abort("Some subjects have missing SNP values.")
+}
+```
+
+# Data Cleaning
+
+```{r}
+# Threshold SNP dosages to 0/1
+snps <- mutate(snps, across(everything(), \(x) as.integer(x >= 0.5)))
+
+# Mean of SNPs within each subject
+df$x_mean <- rowMeans(snps)
+
+# Sum of SNPs within each subject
+df$x_count <- rowSums(snps) |> as.integer()
+```
+
+```{r}
+df$fev1 <- df$fev
+df$t <- df$visit
+df$fev_fvc_ratio <- df$fev / df$fvc
+
+# BMI change from baseline (time-varying)
+df$bmi_change <- df$bmi - df$bmi0
+
+# Covariates
+df$age <- df$age / 10
+df$packyear <- df$packyear / 10
+df$f31cigs <- df$f31cigs / 10
+
+# Rename IDS to be sequential integers
+df$id <- as.integer(as.factor(df$id))
+
+df$rs177852 <- as.integer(df$rs177852 >= 0.5)
+
+df <-
+  df |>
+  select(id,
+         x_mean,
+         x_count,
+         rs177852,
+         fev1,
+         t,
+         fevpct,
+         fvc,
+         fev_fvc_ratio,
+         bmi_change,
+         age,
+         packyear,
+         f31cigs,
+         female,
+         bmi0,
+         site)
+```
+
+```{r}
+arrow::write_parquet(df,
+                     sink = "lhs_cleaned.parquet")
+```
+
+## List of variables in output data
+
+- **id**: Subject identifier (sequential integers, 1 to N)
+- **x_mean**: Polygenic risk score — unweighted mean of 43 hard-called SNPs (proportion, k/43)
+- **x_count**: Polygenic risk score — sum of 43 hard-called SNPs (integer count, 0–43)
+- **rs177852**: Binary indicator for presence of >= 1 T allele at rs177852 (*TTC6* gene)
+- **fev1**: FEV1 in liters (forced expiratory volume in 1 second)
+- **t**: Visit number (1–5, corresponding to annual visits)
+- **fevpct**: FEV1 percent predicted (longitudinal, one per visit)
+- **fvc**: Forced vital capacity in liters (longitudinal, one per visit)
+- **fev_fvc_ratio**: FEV1/FVC ratio (computed as `fev / fvc`, longitudinal)
+- **bmi_change**: BMI change from baseline (time-varying, `bmi - bmi0` at each visit)
+- **age**: Age at baseline in decades (original years / 10)
+- **packyear**: Cumulative pack-years of smoking in tens (original pack-years / 10)
+- **f31cigs**: Cigarettes smoked per day in the year before enrollment, in tens (original count / 10)
+- **female**: Sex indicator (1 = female, 0 = male)
+- **bmi0**: Baseline body mass index (kg/m^2^, unscaled)
+- **site**: Clinical site indicator (1–10)
+
+## Correlation matrix
+
+```{r}
+cor_mat <- df |>
+    dplyr::distinct(id, .keep_all = TRUE) |>
+    select(-id, -site) |>
+    cor()
+
+round(cor_mat, 3)
+```
+
+```{r}
+cor_mat |>
+    as.data.frame() |>
+    tibble::rownames_to_column("var1") |>
+    tidyr::pivot_longer(-var1, names_to = "var2", values_to = "cor") |>
+    ggplot(aes(x = var1, y = var2, fill = cor)) +
+    geom_tile() +
+    geom_text(aes(label = round(cor, 2)), size = 3) +
+    scale_fill_gradient2(low = "#B2182B", mid = "white", high = "#2166AC",
+                         limits = c(-1, 1)) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    labs(x = NULL, y = NULL, fill = "r")
+```
+
+
+## Is the distribution of sum(SNPs) normal?
+
+```{r}
+plot_df <-
+df |>
+  distinct(id, .keep_all = TRUE)
+```
+
+### Histogram
+
+```{r}
+plot_df |>
+  ggplot() +
+  aes(x = x_count) +
+  geom_histogram(aes(y = after_stat(density)),
+                 bins = 30,
+                 color = "black",
+                 fill = "lightgray",
+                 linewidth = 0.05) +
+  geom_density() +
+  theme_bw()
+```
+
+### ECDF
+
+```{r}
+mu <- mean(plot_df$x_count)
+sigma <- sd(plot_df$x_count)
+
+theoretical_df <- tibble(
+    x_count = seq(min(plot_df$x_count), max(plot_df$x_count), length.out = 1000L),
+    cdf = pnorm(x_count, mean = mu, sd = sigma)
+)
+
+ggplot(plot_df, aes(x = x_count)) +
+    stat_ecdf(aes(color = "Empirical"), geom = "step") +
+    geom_line(data = theoretical_df,
+              aes(y = cdf, color = "Theoretical (Normal)"),
+              linetype = "dashed") +
+    scale_color_manual(values = c("Empirical" = "black",
+                                  "Theoretical (Normal)" = "red")) +
+    labs(x = "PRS (sum of SNPs)", y = "CDF", color = NULL) +
+    theme_bw()
+```
+

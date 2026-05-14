@@ -37,3 +37,29 @@ archived/
 
 # Simulation planning docs (personal notes)
 simulation_hypotheses.md
+
+# Claude Code instructions (machine-specific)
+CLAUDE.md
+
+# Simulation outputs (large, regeneratable)
+inst/SIMULATION_CODE/logs/
+inst/SIMULATION_CODE/results/
+inst/SIMULATION_CODE/plots/
+inst/SIMULATION_CODE/processed_data/
+inst/SIMULATION_CODE/.vscode/
+
+# LHS analysis outputs (anywhere in the tree)
+inst/LHS_analysis/**/logs/
+inst/LHS_analysis/**/results/
+inst/LHS_analysis/**/cr_results/
+inst/LHS_analysis/**/figures/
+
+# LHS data (obtained out-of-band)
+inst/LHS_analysis/clean_data/lhsRohde.Rdata
+inst/LHS_analysis/clean_data/lhs_cleaned.parquet
+
+# Reference papers
+inst/LHS_analysis/papers/
+
+# Claude session transcripts
+*_transcript.txt

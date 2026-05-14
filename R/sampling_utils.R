@@ -28,6 +28,9 @@ perform_stratified_sampling <- function(
     if (!is_positive_integer(n_sampled)) {
         cli::cli_abort("{.arg n_sampled} must be a positive integer.")
     }
+    if (cutoff_low >= cutoff_high) {
+        cli::cli_abort("{.arg cutoff_low} must be less than {.arg cutoff_high}.")
+    }
 
     # Categorize into high, middle, and low strata based on quantiles
     breaks <- c(
@@ -50,13 +53,20 @@ perform_stratified_sampling <- function(
         Low = as.integer(n_sampled * prop_low)
     )
 
-    if (!all(is_positive_integer(sizes))) {
-        cli::cli_abort("Sample sizes must be positive whole numbers.")
+    if (any(sizes < 0) || !all(is_whole_number(sizes))) {
+        cli::cli_abort("Sample sizes must be non-negative whole numbers.")
+    }
+
+    if (sum(sizes) != n_sampled) {
+        cli::cli_abort(
+            "Strata sizes sum to {sum(sizes)}, not {n_sampled}. Adjust {.arg n_sampled} or strata proportions so that each stratum size is a whole number."
+        )
     }
 
     # Validate that each stratum has enough candidates
     strata_counts <- table(id_target_df$category)
     for (stratum in names(sizes)) {
+        if (sizes[stratum] == 0L) next
         available <- as.integer(strata_counts[stratum])
         if (is.na(available)) available <- 0L
         requested <- sizes[stratum]
@@ -69,8 +79,9 @@ perform_stratified_sampling <- function(
 
     # Helper to sample IDs from a specific category
     sample_ids <- function(cat, size) {
+        if (size == 0L) return(integer(0))
         candidates <- dplyr::filter(id_target_df, category == cat)$id
-        sample(candidates, size = size, replace = FALSE)
+        candidates[sample.int(length(candidates), size = size)]
     }
 
     selected_ids <- c(

@@ -20,7 +20,6 @@ Imports:
     cli,
     data.table,
     dplyr,
-    extraDistr,
     ggplot2,
     glue,
     instantiate,
@@ -37,7 +36,11 @@ Imports:
 Remotes:
     stan-dev/cmdstanr
 Suggests:
+    callr,
+    cmdstanr,
+    fs,
     knitr,
+    mirai,
     pkgdown,
     quarto,
     testthat (>= 3.0.0)

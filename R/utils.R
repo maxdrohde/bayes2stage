@@ -1,3 +1,13 @@
+# Internal beta-binomial random generation (replaces extraDistr::rbbinom)
+# Uses the standard two-stage compound distribution approach:
+# 1. Draw p ~ Beta(alpha, beta)
+# 2. Draw x ~ Binomial(size, p)
+rbbinom <- function(n, size, alpha, beta) {
+    p <- stats::rbeta(n, alpha, beta)
+    x <- stats::rbinom(n, size, p)
+    return(x)
+}
+
 is_whole_number <- function(x, tol = .Machine$double.eps^0.5) {
     result <- abs(x - round(x)) < tol
     return(result)
@@ -25,12 +35,12 @@ cantor_seed <- function(i, j) {
   if (i < 1L || j < 1L) {
     cli::cli_abort("{.arg i} and {.arg j} must be >= 1.")
   }
-  k <- i + j
-  seed <- as.integer((k * (k + 1L)) %/% 2L + j)
-  if (seed > .Machine$integer.max) {
+  k <- as.double(i) + as.double(j)
+  seed_numeric <- (k * (k + 1)) / 2 + j
+  if (seed_numeric > .Machine$integer.max) {
     cli::cli_abort("Seed overflow: generated seed exceeds integer max.")
   }
-  return(seed)
+  return(as.integer(seed_numeric))
 }
 
 #' Create a forest plot of MCMC output
@@ -76,7 +86,7 @@ model_summary <- function(object, ...) {
 model_summary.CmdStanMCMC <- function(object, ...) {
     draws <- posterior::as_draws_array(object$draws())
     available <- posterior::variables(draws)
-    key_params <- intersect(get_key_parameters(), available)
+    key_params <- intersect(get_key_parameters(available), available)
 
     if (length(key_params) == 0L) {
         cli::cli_abort("No key parameters found in model output")
@@ -115,7 +125,7 @@ model_summary.CmdStanMCMC <- function(object, ...) {
 model_summary.CmdStanPathfinder <- function(object, ...) {
     draws <- posterior::as_draws_array(object$draws())
     available <- posterior::variables(draws)
-    key_params <- intersect(get_key_parameters(), available)
+    key_params <- intersect(get_key_parameters(available), available)
 
     if (length(key_params) == 0L) {
         cli::cli_abort("No key parameters found in model output")
@@ -152,7 +162,7 @@ model_summary.CmdStanPathfinder <- function(object, ...) {
 model_summary.CmdStanLaplace <- function(object, ...) {
     draws <- posterior::as_draws_array(object$draws())
     available <- posterior::variables(draws)
-    key_params <- intersect(get_key_parameters(), available)
+    key_params <- intersect(get_key_parameters(available), available)
 
     if (length(key_params) == 0L) {
         cli::cli_abort("No key parameters found in model output")
@@ -190,7 +200,7 @@ model_summary.CmdStanMLE <- function(object, ...) {
     summ <- object$summary() |>
         as.data.frame()
 
-    key_pars <- get_key_parameters()
+    key_pars <- get_key_parameters(summ$variable)
     summ <- summ[summ$variable %in% key_pars, ]
 
     out <- data.frame(

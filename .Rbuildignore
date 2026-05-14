@@ -1,3 +1,5 @@
+^renv$
+^renv\.lock$
 ^bayes2stage\.Rproj$
 ^\.Rproj\.user$
 ^LICENSE\.md$
@@ -8,7 +10,7 @@
 ^\.\.Rcheck$
 ^\.git$
 ^\.gitignore$
-^\.quarto$
+\.quarto
 ^MCMCtrace\.pdf$
 ^cleanup$
 ^cleanup\.win$
@@ -22,5 +24,9 @@
 ^pkgdown$
 ^\.github$
 ^\.claude$
+^CLAUDE\.md$
 inst/SIMULATION_CODE/\.vscode$
+inst/SIMULATION_CODE/renv$
+inst/SIMULATION_CODE/renv\.lock$
 src/stan/mixed_effects_imputation_[^.]+$
+^session_transcript\.txt$

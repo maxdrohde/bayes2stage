@@ -1,0 +1,107 @@
+---
+title: "LHS Case Study: Replicated Design Comparison"
+---
+
+## Setup
+
+```{r}
+renv::load("/Users/max/r_package_development/bayes2stage")
+library(bayes2stage)
+library(ggplot2)
+```
+
+## Load Data
+
+```{r}
+df <- arrow::read_parquet("clean_data/lhs_cleaned.parquet")
+df$y <- df$fvc
+df$x <- df$x_count
+df$site <- as.factor(df$site)
+```
+
+
+### ODS
+
+```{r}
+ods_df_intercept <-
+  bayes2stage::ods_design(data = df,
+                          sampling_type = "intercept",
+                          cutoff_low = 0.1,
+                          cutoff_high = 0.9,
+                          n_sampled = 500,
+                          prop_high = 0.4,
+                          prop_low = 0.4,
+                          prop_middle = 0.2)
+
+ods_df_slope <-
+  bayes2stage::ods_design(data = df,
+                          sampling_type = "slope",
+                          cutoff_low = 0.1,
+                          cutoff_high = 0.9,
+                          n_sampled = 500,
+                          prop_high = 0.4,
+                          prop_low = 0.4,
+                          prop_middle = 0.2)
+
+ods <-
+  data.frame(intercept = ods_df_intercept$target,
+             slope = ods_df_slope$target)
+```
+
+```{r}
+ods |>
+  ggplot() +
+  aes(x = intercept,
+      y = slope) +
+  geom_point(alpha = 0.3, size = 0.5) +
+  stat_ellipse(level = 0.80, color = "red", type = "norm", linewidth = 1) +
+  theme_bw() +
+  labs(x = "Intercept", y = "Slope", subtitle = "LHS ODS: Intercepts vs Slopes")
+```
+
+
+### BDS
+
+```{r}
+bds_formula <- y ~ t + packyear + f31cigs + bmi0 + female + age + site +
+    bmi_change + t:age + t:female + t:site
+
+bds_df_intercept <-
+  bayes2stage::bds_design(data = df,
+                          fixed_effects_formula = bds_formula,
+                          sampling_type = "intercept",
+                          cutoff_low = 0.1,
+                          cutoff_high = 0.9,
+                          n_sampled = 500,
+                          prop_high = 0.4,
+                          prop_low = 0.4,
+                          prop_middle = 0.2)
+
+bds_df_slope <-
+  bayes2stage::bds_design(data = df,
+                          fixed_effects_formula = bds_formula,
+                          sampling_type = "slope",
+                          cutoff_low = 0.1,
+                          cutoff_high = 0.9,
+                          n_sampled = 500,
+                          prop_high = 0.4,
+                          prop_low = 0.4,
+                          prop_middle = 0.2)
+
+bds <-
+  data.frame(intercept = bds_df_intercept$target,
+             slope = bds_df_slope$target)
+```
+
+```{r}
+bds |>
+  ggplot() +
+  aes(x = intercept,
+      y = slope) +
+  geom_point(alpha = 0.3, size = 0.5) +
+  stat_ellipse(level = 0.80, color = "red", type = "norm", linewidth = 1) +
+  theme_bw() +
+  labs(x = "Intercept", y = "Slope", subtitle = "LHS BDS: Intercepts vs Slopes")
+```
+
+

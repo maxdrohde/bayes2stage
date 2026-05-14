@@ -8,9 +8,7 @@ get_blups <- function(data, fixed_effects_formula, sampling_type) {
     cli::cli_abort("{.var t} must be in {.arg fixed_effects_formula}.")
   }
 
-  lmer_formula <-
-    glue::glue("{deparse(fixed_effects_formula)} + (1 + t | id)") |>
-    stats::as.formula()
+  lmer_formula <- update(fixed_effects_formula, . ~ . + (1 + t | id))
 
   mod <- lme4::lmer(formula = lmer_formula, data = data, REML = FALSE)
 
@@ -33,8 +31,8 @@ get_blups <- function(data, fixed_effects_formula, sampling_type) {
 #' @param data Dataset to use
 #' @param fixed_effects_formula Formula for the fixed-effects when fitting the model to estimate BLUPs
 #' @param sampling_type Which type of sampling? "intercept" or "slope"
-#' @param cutoff_high Which quantile to use as the cutoff for the High category
 #' @param cutoff_low Which quantile to use as the cutoff for the Low category
+#' @param cutoff_high Which quantile to use as the cutoff for the High category
 #' @param n_sampled How many subjects should be sampled?
 #' @param prop_high What proportion to sample from the High category?
 #' @param prop_middle What proportion to sample from the Middle category?
@@ -45,8 +43,8 @@ bds_design <- function(
   data,
   fixed_effects_formula,
   sampling_type,
-  cutoff_high,
   cutoff_low,
+  cutoff_high,
   n_sampled,
   prop_high,
   prop_middle,

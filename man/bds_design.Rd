@@ -8,8 +8,8 @@ bds_design(
   data,
   fixed_effects_formula,
   sampling_type,
-  cutoff_high,
   cutoff_low,
+  cutoff_high,
   n_sampled,
   prop_high,
   prop_middle,
@@ -23,9 +23,9 @@ bds_design(
 
 \item{sampling_type}{Which type of sampling? "intercept" or "slope"}
 
-\item{cutoff_high}{Which quantile to use as the cutoff for the High category}
-
 \item{cutoff_low}{Which quantile to use as the cutoff for the Low category}
+
+\item{cutoff_high}{Which quantile to use as the cutoff for the High category}
 
 \item{n_sampled}{How many subjects should be sampled?}
 

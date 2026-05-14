@@ -1,0 +1,496 @@
+---
+title: "LHS Case Study: Replicated Design Comparison"
+---
+
+## Setup
+
+```{r}
+renv::load("/Users/max/r_package_development/bayes2stage")
+library(bayes2stage)
+
+SCRIPT_DIR <- "."
+source("lhs_config.R")
+```
+
+
+## Load Data
+
+```{r}
+df <- load_lhs_data()
+
+N_SUBJECTS <- length(unique(df$id))
+N_SAMPLED <- as.integer(SAMPLING_FRACTION * N_SUBJECTS)
+cli::cli_alert_info("N subjects: {N_SUBJECTS}, N sampled (stage 2): {N_SAMPLED}")
+```
+
+
+## lme4 Reference
+
+```{r}
+lme4_no_cov <- lme4::lmer(y ~ x + t + x:t + (1 + t | id), data = df)
+
+lme4_schildcrout <- lme4::lmer(
+    y ~ x + t + x:t +
+        packyear + f31cigs + bmi0 + female + age + site +
+        bmi_change + t:age + t:female + t:site +
+        (1 + t | id),
+    data = df
+)
+
+summary(lme4_no_cov)
+summary(lme4_schildcrout)
+```
+
+
+## Replicated Design Comparison
+
+### Load Results
+
+Results are pre-computed by `run_rep.R` via `gnu_parallel.sh`.
+Each replicate writes to `results/rep_{id}.parquet`.
+
+```{r}
+#| label: load-results
+
+result_files <- fs::dir_ls("results", glob = "*.parquet")
+cli::cli_alert_info("Found {length(result_files)} result files")
+
+all_results <- purrr::map(result_files, arrow::read_parquet) |>
+    dplyr::bind_rows()
+
+# Report any fits that failed
+if ("error" %in% names(all_results)) {
+    fit_errors <- dplyr::filter(all_results, !is.na(error))
+    if (nrow(fit_errors) > 0L) {
+        cli::cli_alert_warning("{nrow(fit_errors)} fits failed:")
+        print(dplyr::count(fit_errors, model_spec, design, method, name = "n_failed"))
+    }
+    all_results <- dplyr::filter(all_results, is.na(error)) |>
+        dplyr::select(-error)
+}
+
+# Split results for downstream analysis
+stan_results <- dplyr::filter(all_results, method == "stan")
+full_results <- dplyr::filter(stan_results, design == "full")
+rep_results <- dplyr::filter(stan_results, design != "full")
+
+N_REPS_ACTUAL <- length(unique(rep_results$replicate))
+cli::cli_alert_success(
+    "Loaded {nrow(all_results)} rows: {N_REPS_ACTUAL} replicates + full-data fits"
+)
+```
+
+
+### Aggregate Results
+
+```{r}
+#| label: aggregate
+
+agg <- rep_results |>
+    dplyr::mutate(ci_width = q97_5 - q2_5) |>
+    dplyr::summarize(
+        mean_of_means = mean(mean),
+        sd_of_means = sd(mean),
+        mean_ci_width = mean(ci_width),
+        n_reps = dplyr::n(),
+        .by = c(model_spec, design, parameter)
+    )
+
+full_ref <- full_results |>
+    dplyr::mutate(full_ci_width = q97_5 - q2_5) |>
+    dplyr::select(model_spec, parameter, full_mean = mean, full_ci_width)
+
+agg <- dplyr::left_join(agg, full_ref, by = c("model_spec", "parameter"))
+agg$bias <- agg$mean_of_means - agg$full_mean
+```
+
+
+## Results
+
+```{r}
+library(ggplot2)
+library(gt)
+theme_set(cowplot::theme_cowplot(font_size = 12))
+
+fs::dir_create("figures")
+```
+
+
+### Summary Table
+
+```{r}
+#| label: tbl-summary
+
+agg |>
+    dplyr::filter(parameter %in% KEY_PARAMS) |>
+    dplyr::mutate(
+        design_label = DESIGN_LABELS[design],
+        param_label = PARAM_LABELS[parameter],
+        spec_label = SPEC_LABELS[model_spec]
+    ) |>
+    dplyr::select(
+        spec_label, design_label, param_label,
+        mean_of_means, sd_of_means, mean_ci_width, full_mean, bias
+    ) |>
+    gt(groupname_col = "spec_label") |>
+    fmt_number(
+        columns = c(mean_of_means, sd_of_means, mean_ci_width, full_mean, bias),
+        decimals = 4
+    ) |>
+    cols_label(
+        design_label = "Design",
+        param_label = "Parameter",
+        mean_of_means = "Mean(est)",
+        sd_of_means = "SD(est)",
+        mean_ci_width = "Mean(CI width)",
+        full_mean = "Full data",
+        bias = "Bias"
+    )
+```
+
+
+### Forest Plot
+
+```{r}
+#| label: fig-forest
+#| fig-width: 14
+#| fig-height: 14
+
+DESIGN_ORDER <- rev(c(
+    "Full data", "SRS", "SRS (no imp)",
+    "ODS (intercept)", "ODS (slope)",
+    "BDS (intercept)", "BDS (slope)"
+))
+
+full_for_plot <- full_results |>
+    dplyr::filter(parameter %in% KEY_PARAMS) |>
+    dplyr::transmute(
+        model_spec, parameter,
+        design = "full",
+        mean_of_means = mean,
+        sd_of_means = 0
+    )
+
+forest_df <- agg |>
+    dplyr::filter(parameter %in% KEY_PARAMS) |>
+    dplyr::select(model_spec, parameter, design, mean_of_means, sd_of_means) |>
+    dplyr::bind_rows(full_for_plot) |>
+    dplyr::mutate(
+        design_label = factor(DESIGN_LABELS[design], levels = DESIGN_ORDER),
+        param_label = PARAM_LABELS[parameter],
+        spec_label = SPEC_LABELS[model_spec]
+    )
+
+ref_lines <- full_results |>
+    dplyr::filter(parameter %in% KEY_PARAMS) |>
+    dplyr::mutate(
+        param_label = PARAM_LABELS[parameter],
+        spec_label = SPEC_LABELS[model_spec]
+    )
+
+p_forest <- forest_df |>
+    ggplot(aes(x = mean_of_means, y = design_label)) +
+    geom_vline(xintercept = 0, linetype = "dashed", color = "grey70") +
+    geom_vline(
+        data = ref_lines, aes(xintercept = mean),
+        linetype = "dashed", color = "grey40"
+    ) +
+    geom_pointrange(aes(
+        xmin = mean_of_means - sd_of_means,
+        xmax = mean_of_means + sd_of_means
+    )) +
+    facet_grid(spec_label ~ param_label, scales = "free") +
+    labs(
+        title = glue::glue("Posterior mean estimates across {N_REPS_ACTUAL} replicated subsamples"),
+        subtitle = "25% sampling fraction; dashed line = full-cohort estimate",
+        x = glue::glue("Mean estimate \u00b1 SD across replicates"),
+        y = NULL
+    )
+ggsave("figures/forest_replicates.png", p_forest,
+    device = ragg::agg_png, bg = "white", dpi = 500,
+    width = 14, height = 14, units = "in")
+```
+
+
+### Publication Forest Plot
+
+```{r}
+#| label: fig-forest-pub
+#| fig-width: 12
+#| fig-height: 5
+
+agg_forest <- rep_results |>
+    dplyr::summarize(
+        est = mean(mean),
+        se = mean((q97_5 - q2_5) / (2 * qnorm(0.975))),
+        lo = mean(q2_5),
+        hi = mean(q97_5),
+        .by = c(model_spec, design, parameter)
+    )
+
+make_forest_data <- function(param, spec, agg_data, full_data) {
+    f <- dplyr::filter(full_data, parameter == param, model_spec == spec)
+    f_se <- (f$q97_5 - f$q2_5) / (2 * qnorm(0.975))
+
+    get_row <- function(des) {
+        row <- dplyr::filter(
+            agg_data, design == des, parameter == param, model_spec == spec
+        )
+        if (nrow(row) == 0L) {
+            return(list(est = NA_real_, se = NA_real_, lo = NA_real_, hi = NA_real_))
+        }
+        list(est = row$est, se = row$se, lo = row$lo, hi = row$hi)
+    }
+
+    d <- purrr::map(
+        c("srs", "ods_intercept", "ods_slope", "bds_intercept", "bds_slope", "srs_no_imp"),
+        get_row
+    ) |> purrr::set_names(c("srs", "ods_i", "ods_s", "bds_i", "bds_s", "srs_ni"))
+
+    se_vec <- c(f_se, NA, NA,
+                d$srs$se, d$ods_i$se, d$ods_s$se,
+                d$bds_i$se, d$bds_s$se,
+                NA, NA, d$srs_ni$se)
+    re_vec <- ifelse(is.na(se_vec), NA_real_, (f_se / se_vec)^2)
+
+    data.frame(
+        label = c(
+            "Full cohort", "",
+            "Bayesian imputation",
+            "Random sampling (SRS)",
+            "ODS (intercept)", "ODS (slope)",
+            "BDS (intercept)", "BDS (slope)",
+            "",
+            "Complete-case (no imputation)",
+            "Random sampling (SRS)"
+        ),
+        est = c(f$mean, NA, NA,
+                d$srs$est, d$ods_i$est, d$ods_s$est,
+                d$bds_i$est, d$bds_s$est,
+                NA, NA, d$srs_ni$est),
+        lo  = c(f$q2_5, NA, NA,
+                d$srs$lo, d$ods_i$lo, d$ods_s$lo,
+                d$bds_i$lo, d$bds_s$lo,
+                NA, NA, d$srs_ni$lo),
+        hi  = c(f$q97_5, NA, NA,
+                d$srs$hi, d$ods_i$hi, d$ods_s$hi,
+                d$bds_i$hi, d$bds_s$hi,
+                NA, NA, d$srs_ni$hi),
+        se  = se_vec,
+        re  = re_vec
+    )
+}
+
+combos <- tidyr::expand_grid(param = KEY_PARAMS, spec = names(MODEL_SPECS))
+
+pub_plots <- purrr::map2(combos$param, combos$spec, \(param, spec) {
+    fd <- make_forest_data(param, spec, agg_forest, full_results)
+    fmt <- if (param == "beta_x_t_interaction") {
+        list(ci = "%.4f (%.4f, %.4f)", se = "%.4f")
+    } else {
+        list(ci = "%5.2f (%5.2f, %4.2f)", se = "%4.2f")
+    }
+    zero_in_range <- min(fd$lo, na.rm = TRUE) <= 0 && max(fd$hi, na.rm = TRUE) >= 0
+    p <- plot_forest(
+        fd, ref_line = fd$est[1L],
+        xlab = PARAM_LABELS[param],
+        ci_format = fmt$ci, se_format = fmt$se,
+        extra_col = list(col = "re", header = "RE", format = "%4.2f"),
+        font_family = ""
+    )
+    if (zero_in_range) {
+        p <- p + geom_vline(xintercept = 0, linetype = "dashed", color = "grey70")
+    }
+    p +
+        ggtitle(
+            glue::glue("{PARAM_LABELS[param]}: {SPEC_LABELS[spec]} model"),
+            subtitle = glue::glue(
+                "Mean posterior estimates averaged across {N_REPS_ACTUAL} replicates"
+            )
+        ) +
+        theme(
+            plot.title = element_text(size = 13, face = "bold"),
+            plot.title.position = "plot",
+            plot.subtitle = element_text(size = 10)
+        )
+})
+
+purrr::walk2(
+    pub_plots,
+    glue::glue("figures/forest_{combos$spec}_{combos$param}.png"),
+    \(p, path) ggsave(path, p,
+        device = ragg::agg_png, bg = "white", dpi = 500,
+        width = 12, height = 5, units = "in")
+)
+
+```
+
+
+### Relative Efficiency
+
+```{r}
+#| label: fig-re
+#| fig-width: 14
+#| fig-height: 10
+
+RE_DESIGN_ORDER <- rev(c(
+    "SRS",
+    "ODS (intercept)", "BDS (intercept)",
+    "ODS (slope)", "BDS (slope)"
+))
+
+re_df <- agg |>
+    dplyr::filter(
+        parameter %in% KEY_PARAMS,
+        !design %in% c("full", "srs_no_imp")
+    ) |>
+    dplyr::mutate(
+        relative_efficiency = full_ci_width^2 / mean_ci_width^2,
+        design_label = factor(DESIGN_LABELS[design], levels = RE_DESIGN_ORDER),
+        param_label = PARAM_LABELS[parameter],
+        spec_label = SPEC_LABELS[model_spec]
+    )
+
+p_re <- re_df |>
+    ggplot(aes(x = relative_efficiency, y = design_label)) +
+    geom_col() +
+    geom_vline(xintercept = 1, linetype = "dashed", color = "grey30") +
+    facet_grid(spec_label ~ param_label, scales = "free_x") +
+    labs(
+        title = glue::glue(
+            "Relative efficiency vs. full cohort ({N_REPS_ACTUAL} replicates)"
+        ),
+        subtitle = "Values near 1 = minimal information loss; dashed line = full-cohort reference",
+        x = "Relative efficiency (full CI width\u00b2 / design CI width\u00b2)",
+        y = NULL
+    )
+ggsave("figures/relative_efficiency.png", p_re,
+    device = ragg::agg_png, bg = "white", dpi = 500,
+    width = 14, height = 10, units = "in")
+```
+
+
+### Bias
+
+```{r}
+#| label: fig-bias
+#| fig-width: 14
+#| fig-height: 10
+
+BIAS_ORDER <- rev(c(
+    "SRS", "SRS (no imp)",
+    "ODS (intercept)", "ODS (slope)",
+    "BDS (intercept)", "BDS (slope)"
+))
+
+bias_df <- agg |>
+    dplyr::filter(parameter %in% KEY_PARAMS, design != "full") |>
+    dplyr::mutate(
+        design_label = factor(DESIGN_LABELS[design], levels = BIAS_ORDER),
+        param_label = PARAM_LABELS[parameter],
+        spec_label = SPEC_LABELS[model_spec]
+    )
+
+p_bias <- bias_df |>
+    ggplot(aes(x = bias, y = design_label)) +
+    geom_col() +
+    geom_vline(xintercept = 0, linetype = "dashed", color = "grey30") +
+    facet_grid(spec_label ~ param_label, scales = "free_x") +
+    labs(
+        title = glue::glue(
+            "Bias relative to full-cohort estimate ({N_REPS_ACTUAL} replicates)"
+        ),
+        subtitle = "25% sampling fraction; dashed line = zero bias",
+        x = "Bias (mean design estimate \u2212 full-cohort estimate)",
+        y = NULL
+    )
+ggsave("figures/bias.png", p_bias,
+    device = ragg::agg_png, bg = "white", dpi = 500,
+    width = 14, height = 10, units = "in")
+```
+
+
+### ODS Slope Bias
+
+ODS slope sampling selects subjects with extreme outcome trajectories, creating
+informative missingness that the imputation model does not fully correct. Both
+the Bayesian (Stan) and frequentist (ACML) estimators show similar bias for
+$\beta_x$, confirming this is a property of the *design*, not the estimation
+method.
+
+```{r}
+#| label: fig-ods-slope-bias
+#| fig-width: 12
+#| fig-height: 8
+
+METHOD_LABELS <- c(stan = "Bayesian imputation (Stan)", acml = "ACML")
+
+ods_slope_df <- all_results |>
+    dplyr::filter(
+        design %in% c("ods_slope", "full"),
+        parameter == "beta_x"
+    ) |>
+    dplyr::mutate(
+        method_label = METHOD_LABELS[method],
+        spec_label = SPEC_LABELS[model_spec]
+    )
+
+full_ref_bx <- dplyr::filter(ods_slope_df, design == "full") |>
+    dplyr::distinct(spec_label, mean)
+
+ods_slope_rep <- dplyr::filter(ods_slope_df, design == "ods_slope")
+
+p_ods_bias <- ods_slope_rep |>
+    ggplot(aes(x = mean, color = method_label)) +
+    geom_density(fill = NA, linewidth = 0.7) +
+    geom_vline(
+        data = full_ref_bx, aes(xintercept = mean),
+        linetype = "dashed", linewidth = 0.6
+    ) +
+    facet_wrap(~ spec_label, scales = "free_x") +
+    scale_color_manual(values = c(
+        "Bayesian imputation (Stan)" = "#3574a7",
+        "ACML" = "#e8833a"
+    )) +
+    labs(
+        title = glue::glue(
+            "ODS slope bias for \u03b2x: both methods agree ({N_REPS_ACTUAL} replicates)"
+        ),
+        subtitle = "Dashed line = full cohort",
+        x = "Estimate of \u03b2x",
+        y = "Density",
+        color = "Method"
+    ) +
+    theme(legend.position = "bottom")
+ggsave("figures/ods_slope_bias.png", p_ods_bias,
+    device = ragg::agg_png, bg = "white", dpi = 500,
+    width = 12, height = 8, units = "in")
+```
+
+
+## Diagnostics
+
+```{r}
+div_issues <- rep_results |>
+    dplyr::distinct(model_spec, design, replicate, divergent_transitions) |>
+    dplyr::filter(divergent_transitions > 0L)
+
+if (nrow(div_issues) > 0L) {
+    cli::cli_alert_warning("{nrow(div_issues)} fits had divergent transitions")
+    print(dplyr::count(div_issues, model_spec, design, name = "n_fits_with_divs"))
+} else {
+    cli::cli_alert_success("No divergent transitions in any fit.")
+}
+```
+
+```{r}
+rhat_issues <- rep_results |>
+    dplyr::filter(rhat > 1.01)
+
+if (nrow(rhat_issues) > 0L) {
+    cli::cli_alert_warning("{nrow(rhat_issues)} parameter-fit combos with Rhat > 1.01")
+    print(dplyr::count(rhat_issues, model_spec, design, parameter, name = "n_reps"))
+} else {
+    cli::cli_alert_success("All Rhat <= 1.01")
+}
+```

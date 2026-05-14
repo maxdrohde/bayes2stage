@@ -4,17 +4,32 @@
 \alias{fit_acml_ods}
 \title{Fit ACML model for outcome-dependent sampling}
 \usage{
-fit_acml_ods(ods_df, cutoff_low, cutoff_high)
+fit_acml_ods(
+  ods_df,
+  cutoff_low,
+  cutoff_high,
+  main_model_formula = ~1,
+  random_effects_formula = ~1 + t
+)
 }
 \arguments{
-\item{ods_df}{Data frame from ODS sampling}
+\item{ods_df}{Data frame from ODS sampling. Must contain columns: \code{id}, \code{target},
+\code{selected}, \code{category}, \code{x}, \code{y}, \code{t}, \code{sampling_type}.}
 
-\item{cutoff_low}{Lower cutoff value for sampling regions}
+\item{cutoff_low}{Lower quantile cutoff (between 0 and 1) for sampling regions.}
 
-\item{cutoff_high}{Upper cutoff value for sampling regions}
+\item{cutoff_high}{Upper quantile cutoff (between 0 and 1) for sampling regions.}
+
+\item{main_model_formula}{One-sided formula or string for additional covariates
+in the main model (e.g., \code{~ z}). Terms \code{t}, \code{x}, and \code{x:t} are always included.
+Default: \code{~ 1} (no additional covariates).}
+
+\item{random_effects_formula}{Formula for random effects. Default: \code{~ 1 + t}
+(random intercept and slope on time).}
 }
 \value{
-A data frame with parameter estimates and confidence intervals
+A data frame with class \code{"acml_fit"} containing parameter estimates
+and confidence intervals. Columns: \code{variable}, \code{mean}, \code{sd}, \verb{2.5\%}, \verb{97.5\%}.
 }
 \description{
 Fits an ascertainment-corrected maximum likelihood model for ODS designs.

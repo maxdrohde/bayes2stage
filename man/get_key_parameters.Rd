@@ -4,12 +4,19 @@
 \alias{get_key_parameters}
 \title{Get default key parameters for diagnostics}
 \usage{
-get_key_parameters()
+get_key_parameters(available = NULL)
+}
+\arguments{
+\item{available}{Optional character vector of available parameter names
+from a fitted model. When provided, all \code{beta[i]} and \code{gamma[i]}
+parameters are included.}
 }
 \value{
 Character vector of Stan parameter names
 }
 \description{
 Returns the Stan parameter names that are typically of interest for
-MCMC diagnostics and model summaries.
+MCMC diagnostics and model summaries. When \code{available} is provided,
+also includes all indexed \code{beta[i]} and \code{gamma[i]} parameters found
+in the available set (useful when models have multiple covariates).
 }

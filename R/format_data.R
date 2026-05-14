@@ -1,10 +1,13 @@
 #' Prepare a formula for model matrix creation
 #'
-#' Converts string to formula if needed, validates input, and removes intercept.
+#' Converts string to formula if needed and validates input. The intercept is
+#' kept in the formula so that `model.matrix()` uses K-1 (treatment) coding for
+#' factor variables. The intercept column is dropped after `model.matrix()` in
+#' [format_data_mcmc()] because the Stan model has its own intercept parameter.
 #'
 #' @param x A formula or character string
 #' @param name Name of the argument (for error messages)
-#' @return A formula with intercept suppressed
+#' @return A validated formula (intercept retained for proper factor encoding)
 #' @noRd
 prepare_formula <- function(x, name) {
     if (is.null(x)) {
@@ -16,7 +19,7 @@ prepare_formula <- function(x, name) {
     if (!inherits(x, "formula")) {
         cli::cli_abort("{.arg {name}} must be a formula or string, not {.cls {class(x)}}")
     }
-    stats::update(x, ~ . - 1)
+    x
 }
 
 #' Format the simulated data for Stan
@@ -44,6 +47,17 @@ format_data_mcmc <- function(data,
 
   imputation_distribution <- match.arg(imputation_distribution)
 
+  # Validate required columns
+
+  required_cols <- c("id", "t", "y", "x")
+  if (imputation_distribution == "beta_binomial") {
+      required_cols <- c(required_cols, "n_trials")
+  }
+  missing_cols <- setdiff(required_cols, names(data))
+  if (length(missing_cols) > 0L) {
+      cli::cli_abort("Missing required columns in {.arg data}: {.field {missing_cols}}")
+  }
+
   data <-
     data |>
     dplyr::arrange(id, t)
@@ -64,6 +78,12 @@ format_data_mcmc <- function(data,
 
   X <- stats::model.matrix(main_model_formula, data = data, na.action = stats::na.pass)
   Z <- stats::model.matrix(imputation_model_formula, data = id_df, na.action = stats::na.pass)
+
+  # Drop the intercept column — the Stan model has its own alpha_main / alpha_imputation.
+  # We build model.matrix WITH the intercept so factor variables get proper K-1
+  # (treatment) encoding rather than K indicator columns.
+  X <- X[, colnames(X) != "(Intercept)", drop = FALSE]
+  Z <- Z[, colnames(Z) != "(Intercept)", drop = FALSE]
 
   P <- ncol(X)
   S <- ncol(Z)

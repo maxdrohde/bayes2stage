@@ -293,12 +293,6 @@ ppc_imputation_residuals <- function(fit, data, imputation_covariates) {
   x_obs <- ppc_data$x
   Z_obs <- ppc_data$Z
 
-  if (ncol(Z_obs) > 0) {
-    z_primary <- Z_obs[, 1]
-  } else {
-    z_primary <- rep(0, length(x_obs))
-  }
-
   summary_df <- fit$summary()
 
   alpha_mean <- summary_df |>
@@ -320,7 +314,6 @@ ppc_imputation_residuals <- function(fit, data, imputation_covariates) {
 
   resid_df <- data.frame(
     x_obs = x_obs,
-    z = z_primary,
     fitted = fitted_vals,
     residual = residuals,
     std_residual = std_residuals
@@ -342,20 +335,34 @@ ppc_imputation_residuals <- function(fit, data, imputation_covariates) {
     ) +
     ggplot2::theme_minimal()
 
-  plots$vs_z <- ggplot2::ggplot(
-    resid_df,
-    ggplot2::aes(x = z, y = residual)
-  ) +
-    ggplot2::geom_point(alpha = 0.6) +
-    ggplot2::geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-    ggplot2::geom_smooth(method = "loess", se = FALSE, color = "blue", formula = y ~ x) +
-    ggplot2::labs(
-      title = "Residuals vs z",
-      subtitle = "Curvature suggests non-linear z-x relationship",
-      x = "z (first imputation covariate)",
-      y = "Residual"
+  # Residuals vs all covariates (faceted)
+  if (ncol(Z_obs) > 0 && length(imputation_covariates) > 0) {
+    resid_vs_z_long <- purrr::imap_dfr(imputation_covariates, \(cov, i) {
+      data.frame(
+        covariate = cov,
+        z_value = Z_obs[, i],
+        residual = residuals
+      )
+    })
+
+    plots$vs_z <- ggplot2::ggplot(
+      resid_vs_z_long,
+      ggplot2::aes(x = z_value, y = residual)
     ) +
-    ggplot2::theme_minimal()
+      ggplot2::geom_point(alpha = 0.6) +
+      ggplot2::geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+      ggplot2::geom_smooth(method = "loess", se = TRUE, color = "blue", formula = y ~ x) +
+      ggplot2::facet_wrap(~covariate, scales = "free_x") +
+      ggplot2::labs(
+        title = "Residuals vs Covariates",
+        subtitle = "Curvature suggests non-linear z-x relationship",
+        x = "Covariate value",
+        y = "Residual"
+      ) +
+      ggplot2::theme_minimal()
+  } else {
+    plots$vs_z <- NULL
+  }
 
   plots$qq <- ggplot2::ggplot(
     resid_df,
@@ -415,6 +422,165 @@ ppc_imputation_residuals <- function(fit, data, imputation_covariates) {
     diagnostics = diagnostics,
     data = resid_df
   ))
+}
+
+# =============================================================================
+# Mean Model Diagnostics
+# =============================================================================
+
+#' Mean model diagnostics for normal imputation
+#'
+#' Comprehensive diagnostics to detect misspecification of the conditional mean
+#' E\[x|z\] in the normal imputation model. Produces four diagnostic plots that
+#' help identify nonlinearity, systematic patterns, and model fit issues.
+#'
+#' @param fit CmdStanMCMC fit object from fit_stan_model()
+#' @param data Data frame used for fitting
+#' @param imputation_covariates Character vector of imputation model covariate names
+#' @param n_bins Number of bins for binned residual plot (default: 10)
+#' @return A list containing:
+#'   \item{plots}{List of ggplot objects: resid_vs_z, partial_residuals, obs_vs_pred, binned_residuals}
+#'   \item{r_squared}{R-squared of observed vs predicted}
+#'   \item{fitted}{Vector of fitted values E\[x|z\]}
+#'   \item{residuals}{Vector of residuals (observed - fitted)}
+#' @export
+ppc_imputation_mean_diagnostics <- function(
+    fit,
+    data,
+    imputation_covariates,
+    n_bins = 10
+) {
+    ppc_data <- get_ppc_data(data, imputation_covariates)
+    x_obs <- ppc_data$x
+    Z_obs <- ppc_data$Z
+
+    if (length(imputation_covariates) == 0 || ncol(Z_obs) == 0) {
+        cli::cli_abort("No imputation covariates provided")
+    }
+
+    summary_df <- fit$summary()
+    alpha_mean <- summary_df |>
+        dplyr::filter(variable == "alpha_imputation") |>
+        dplyr::pull(mean)
+    gamma_mean <- get_gamma_posterior_mean(summary_df)
+
+    if (length(gamma_mean) == 0) {
+        gamma_mean <- rep(0, ncol(Z_obs))
+    }
+
+    fitted_vals <- as.vector(alpha_mean + Z_obs %*% gamma_mean)
+    residuals <- x_obs - fitted_vals
+
+    plots <- list()
+
+    # 1. Residuals vs all covariates (faceted)
+    resid_long <- purrr::imap_dfr(imputation_covariates, \(cov, i) {
+        data.frame(
+            covariate = cov,
+            z_value = Z_obs[, i],
+            residual = residuals
+        )
+    })
+
+    plots$resid_vs_z <- ggplot2::ggplot(
+        resid_long,
+        ggplot2::aes(x = z_value, y = residual)
+    ) +
+        ggplot2::geom_point(alpha = 0.5) +
+        ggplot2::geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+        ggplot2::geom_smooth(method = "loess", se = TRUE, color = "blue",
+                             formula = y ~ x) +
+        ggplot2::facet_wrap(~covariate, scales = "free_x") +
+        ggplot2::labs(
+            title = "Residuals vs Covariates",
+            subtitle = "Curvature in loess suggests nonlinear relationship",
+            x = "Covariate value", y = "Residual"
+        ) +
+        ggplot2::theme_minimal()
+
+    # 2. Partial residual plots (faceted)
+    partial_long <- purrr::imap_dfr(imputation_covariates, \(cov, i) {
+        partial_resid <- gamma_mean[i] * Z_obs[, i] + residuals
+        data.frame(
+            covariate = cov,
+            z_value = Z_obs[, i],
+            partial_residual = partial_resid
+        )
+    })
+
+    plots$partial_residuals <- ggplot2::ggplot(
+        partial_long,
+        ggplot2::aes(x = z_value, y = partial_residual)
+    ) +
+        ggplot2::geom_point(alpha = 0.5) +
+        ggplot2::geom_smooth(method = "lm", se = FALSE, color = "red",
+                             formula = y ~ x) +
+        ggplot2::geom_smooth(method = "loess", se = TRUE, color = "blue",
+                             formula = y ~ x) +
+        ggplot2::facet_wrap(~covariate, scales = "free") +
+        ggplot2::labs(
+            title = "Partial Residual Plots",
+            subtitle = "Red = linear fit; Blue = loess (should overlap if linear is correct)",
+            x = "Covariate value", y = "Partial residual"
+        ) +
+        ggplot2::theme_minimal()
+
+    # 3. Observed vs predicted
+    r_squared <- stats::cor(x_obs, fitted_vals)^2
+    obs_pred_df <- data.frame(observed = x_obs, predicted = fitted_vals)
+
+    plots$obs_vs_pred <- ggplot2::ggplot(
+        obs_pred_df,
+        ggplot2::aes(x = predicted, y = observed)
+    ) +
+        ggplot2::geom_point(alpha = 0.5) +
+        ggplot2::geom_abline(slope = 1, intercept = 0, color = "red",
+                             linetype = "dashed") +
+        ggplot2::labs(
+            title = "Observed vs Predicted x",
+            subtitle = sprintf("R-squared = %.3f", r_squared),
+            x = "Predicted E[x|z]", y = "Observed x"
+        ) +
+        ggplot2::theme_minimal()
+
+    # 4. Binned residuals
+    bin_df <- data.frame(fitted = fitted_vals, residual = residuals) |>
+        dplyr::mutate(bin = cut(fitted, breaks = n_bins, include.lowest = TRUE)) |>
+        dplyr::summarize(
+            mean_fitted = mean(fitted),
+            mean_resid = mean(residual),
+            se_resid = stats::sd(residual) / sqrt(dplyr::n()),
+            n = dplyr::n(),
+            .by = bin
+        )
+
+    plots$binned_residuals <- ggplot2::ggplot(
+        bin_df,
+        ggplot2::aes(x = mean_fitted, y = mean_resid)
+    ) +
+        ggplot2::geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+        ggplot2::geom_ribbon(
+            ggplot2::aes(ymin = -1.96 * se_resid, ymax = 1.96 * se_resid),
+            alpha = 0.2, fill = "steelblue"
+        ) +
+        ggplot2::geom_point(ggplot2::aes(size = n), color = "steelblue") +
+        ggplot2::geom_line(color = "steelblue") +
+        ggplot2::labs(
+            title = "Binned Residuals",
+            subtitle = "Points outside bands suggest systematic misfit",
+            x = "Mean predicted value (binned)", y = "Mean residual",
+            size = "N per bin"
+        ) +
+        ggplot2::theme_minimal()
+
+    result <- list(
+        plots = plots,
+        r_squared = r_squared,
+        fitted = fitted_vals,
+        residuals = residuals
+    )
+
+    return(result)
 }
 
 # =============================================================================
@@ -547,7 +713,11 @@ ppc_imputation_count <- function(fit, data, imputation_covariates, n_draws = 500
   draw_idx <- sample(nrow(draws), min(n_draws, nrow(draws)))
 
   alpha_imp <- draws$alpha_imputation[draw_idx]
-  phi <- draws$phi[draw_idx]
+  phi_col <- intersect(c("phi", "phi_imputation"), names(draws))
+  if (length(phi_col) == 0L) {
+    cli::cli_abort("Dispersion parameter {.var phi} not found in posterior draws.")
+  }
+  phi <- draws[[phi_col[1L]]][draw_idx]
   gamma_mat <- extract_gamma_matrix(draws, draw_idx)
 
   x_rep_list <- vector("list", length(draw_idx))
@@ -650,7 +820,11 @@ ppc_imputation_beta_binomial <- function(fit, data, imputation_covariates, n_dra
   draw_idx <- sample(nrow(draws), min(n_draws, nrow(draws)))
 
   alpha_imp <- draws$alpha_imputation[draw_idx]
-  phi <- draws$phi[draw_idx]
+  phi_col <- intersect(c("phi", "phi_imputation"), names(draws))
+  if (length(phi_col) == 0L) {
+    cli::cli_abort("Dispersion parameter {.var phi} not found in posterior draws.")
+  }
+  phi <- draws[[phi_col[1L]]][draw_idx]
   gamma_mat <- extract_gamma_matrix(draws, draw_idx)
 
   x_rep_list <- vector("list", length(draw_idx))
@@ -769,6 +943,11 @@ ppc_imputation <- function(
 
     cli::cli_h2("Residual Diagnostics")
     results$residuals <- ppc_imputation_residuals(fit, data, imputation_covariates)
+
+    cli::cli_h2("Mean Model Diagnostics")
+    results$mean_diagnostics <- ppc_imputation_mean_diagnostics(
+      fit, data, imputation_covariates, n_bins = 10
+    )
   } else if (distribution == "bernoulli") {
     cli::cli_h2("Calibration and Discrimination")
     results$bernoulli <- ppc_imputation_bernoulli(fit, data, imputation_covariates, n_draws = n_draws)
@@ -798,6 +977,7 @@ ppc_imputation <- function(
     cli::cli_alert_info("SD check: observed = {round(results$sd$observed, 3)}, p = {round(results$sd$p_value, 3)}")
     cli::cli_alert_info("95% interval coverage: {round(100 * results$intervals$coverage, 1)}%")
     cli::cli_alert_info("Shapiro-Wilk p-value: {round(results$residuals$diagnostics$shapiro_p, 3)}")
+    cli::cli_alert_info("Mean model R-squared: {round(results$mean_diagnostics$r_squared, 3)}")
 
     if (results$mean$p_value < 0.05) {
       issues <- c(issues, "Mean of observed x differs from predicted (p < 0.05)")

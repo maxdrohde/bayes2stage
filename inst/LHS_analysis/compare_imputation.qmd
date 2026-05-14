@@ -1,0 +1,478 @@
+---
+title: "Imputation Model Comparison: Credible Regions by Sampling Design"
+format:
+  html:
+    toc: true
+    code-fold: true
+    embed-resources: true
+---
+
+## Setup
+
+```{r}
+#| label: setup
+renv::load("/Users/max/r_package_development/bayes2stage")
+library(ggplot2)
+library(patchwork)
+library(gt)
+theme_set(cowplot::theme_cowplot(font_size = 12, font_family = "Source Sans Pro"))
+
+SCRIPT_DIR <- "."
+source("lhs_config.R")
+fs::dir_create("figures")
+```
+
+## Load Draws
+
+```{r}
+#| label: load-draws
+load_draws <- function(dir, model_label) {
+    files <- fs::dir_ls(dir, glob = "*.parquet")
+    purrr::map(files, arrow::read_parquet) |>
+        dplyr::bind_rows() |>
+        dplyr::mutate(imputation = model_label)
+}
+
+draws_normal <- load_draws("cr_results", "Normal")
+draws_bb <- load_draws("beta_binomial/cr_results", "Beta-binomial")
+draws_nb <- load_draws("negative_binomial/cr_results", "Negative-binomial")
+
+draws_df <- dplyr::bind_rows(draws_normal, draws_bb, draws_nb)
+
+DESIGN_LABELS <- c(
+    full          = "Full data",
+    srs           = "SRS",
+    ods_intercept = "ODS (intercept)",
+    ods_slope     = "ODS (slope)",
+    ods_ellipse   = "ODS (ellipse)",
+    bds_intercept = "BDS (intercept)",
+    bds_slope     = "BDS (slope)",
+    bds_ellipse   = "BDS (ellipse)"
+)
+
+DESIGN_ORDER <- c(
+    "Full data", "SRS",
+    "ODS (intercept)", "ODS (slope)", "ODS (ellipse)",
+    "BDS (intercept)", "BDS (slope)", "BDS (ellipse)"
+)
+
+IMP_ORDER <- c("Normal", "Beta-binomial", "Negative-binomial")
+
+draws_df <- draws_df |>
+    dplyr::mutate(
+        design_label = factor(DESIGN_LABELS[design], levels = DESIGN_ORDER),
+        imputation = factor(imputation, levels = IMP_ORDER)
+    )
+
+n_per <- dplyr::count(draws_df, imputation)
+cli::cli_alert_success(
+    "Loaded {nrow(draws_df)} total draws across {length(IMP_ORDER)} imputation models"
+)
+```
+
+## Joint Credible Regions
+
+```{r}
+#| label: colors
+IMP_COLORS <- c(
+    "Normal"            = "#3574a7",
+    "Beta-binomial"     = "#e8833a",
+    "Negative-binomial" = "#6a9f58"
+)
+```
+
+### Faceted by design, colored by imputation model
+
+```{r}
+#| label: fig-facet-comparison
+#| fig-width: 16
+#| fig-height: 10
+
+p_facet <- draws_df |>
+    ggplot(aes(x = beta_x, y = beta_xt, color = imputation)) +
+    stat_ellipse(level = 0.95, type = "norm", linewidth = 0.9) +
+    geom_hline(yintercept = 0, linetype = "dotted", color = "grey60") +
+    geom_vline(xintercept = 0, linetype = "dotted", color = "grey60") +
+    scale_color_manual(values = IMP_COLORS) +
+    facet_wrap(~ design_label, ncol = 4) +
+    labs(
+        title = "Imputation model comparison: joint 95% credible regions",
+        subtitle = "Schildcrout 2019 model | 25% sampling fraction",
+        x = expression(beta[x] ~ "(PRS effect on FVC)"),
+        y = expression(beta["x\u00d7t"] ~ "(PRS \u00d7 Time interaction)"),
+        color = "Imputation model"
+    )
+
+p_facet
+
+ggsave("figures/compare_imputation_faceted.png", p_facet,
+    device = ragg::agg_png, bg = "white", dpi = 500,
+    width = 16, height = 10, units = "in")
+```
+
+### Normal imputation: multiple credible levels
+
+```{r}
+#| label: fig-normal-levels
+#| fig-width: 16
+#| fig-height: 10
+
+CR_LEVELS <- c(0.50, 0.80, 0.95)
+
+p_levels <- draws_df |>
+    dplyr::filter(imputation == "Normal") |>
+    ggplot(aes(x = beta_x, y = beta_xt)) +
+    purrr::map(CR_LEVELS, \(lv) {
+        stat_ellipse(
+            level = lv, type = "norm", linewidth = 0.7,
+            aes(color = factor(lv))
+        )
+    }) +
+    geom_hline(yintercept = 0, linetype = "dotted", color = "grey60") +
+    geom_vline(xintercept = 0, linetype = "dotted", color = "grey60") +
+    scale_color_manual(
+        values = c("0.5" = "#3574a7", "0.8" = "#e8833a", "0.95" = "#6a9f58"),
+        labels = c("0.5" = "50%", "0.8" = "80%", "0.95" = "95%")
+    ) +
+    facet_wrap(~ design_label, ncol = 4) +
+    labs(
+        title = "Normal imputation: joint credible regions at multiple levels",
+        subtitle = "Schildcrout 2019 model | 25% sampling fraction",
+        x = expression(beta[x] ~ "(PRS effect on FVC)"),
+        y = expression(beta["x\u00d7t"] ~ "(PRS \u00d7 Time interaction)"),
+        color = "Credible level"
+    )
+
+p_levels
+
+ggsave("figures/compare_imputation_levels.png", p_levels,
+    device = ragg::agg_png, bg = "white", dpi = 500,
+    width = 16, height = 10, units = "in")
+```
+
+### ODS vs BDS overlay
+
+```{r}
+#| label: fig-overlay-design
+#| fig-width: 14
+#| fig-height: 6
+
+TARGET_COLORS <- c(
+    "Intercept" = "#3574a7",
+    "Slope"     = "#e8833a",
+    "Ellipse"   = "#6a9f58"
+)
+
+draws_normal <- draws_df |>
+    dplyr::filter(imputation == "Normal")
+
+draws_full <- draws_normal |>
+    dplyr::filter(design == "full")
+
+draws_ods_bds <- draws_normal |>
+    dplyr::filter(grepl("^(ods|bds)", design)) |>
+    dplyr::mutate(
+        design_family = ifelse(grepl("^ods", design), "ODS", "BDS"),
+        design_family = factor(design_family, levels = c("ODS", "BDS")),
+        target = dplyr::recode_values(
+            design,
+            c("ods_intercept", "bds_intercept") ~ "Intercept",
+            c("ods_slope", "bds_slope") ~ "Slope",
+            c("ods_ellipse", "bds_ellipse") ~ "Ellipse"
+        ),
+        target = factor(target, levels = c("Intercept", "Slope", "Ellipse"))
+    )
+
+p_overlay <- draws_ods_bds |>
+    ggplot(aes(x = beta_x, y = beta_xt, color = target)) +
+    stat_ellipse(
+        data = draws_full |> tidyr::crossing(
+            design_family = factor(c("ODS", "BDS"), levels = c("ODS", "BDS"))
+        ),
+        aes(x = beta_x, y = beta_xt),
+        level = 0.95, type = "norm", linewidth = 0.7,
+        linetype = "dashed", color = "grey40", inherit.aes = FALSE
+    ) +
+    stat_ellipse(level = 0.95, type = "norm", linewidth = 0.9) +
+    geom_hline(yintercept = 0, linetype = "dotted", color = "grey60") +
+    geom_vline(xintercept = 0, linetype = "dotted", color = "grey60") +
+    scale_color_manual(values = TARGET_COLORS) +
+    facet_wrap(~ design_family) +
+    labs(
+        title = "Sampling target comparison: joint 95% credible regions",
+        subtitle = "Normal imputation | Schildcrout 2019 model | 25% sampling fraction | Dashed = full data",
+        x = expression(beta[x] ~ "(PRS effect on FVC)"),
+        y = expression(beta["x\u00d7t"] ~ "(PRS \u00d7 Time interaction)"),
+        color = "Target"
+    )
+
+p_overlay
+
+ggsave("figures/compare_imputation_overlay.png", p_overlay,
+    device = ragg::agg_png, bg = "white", dpi = 500,
+    width = 14, height = 6, units = "in")
+```
+
+### Full data only
+
+```{r}
+#| label: fig-full-comparison
+#| fig-width: 8
+#| fig-height: 6
+
+p_full <- draws_df |>
+    dplyr::filter(design == "full") |>
+    ggplot(aes(x = beta_x, y = beta_xt, color = imputation)) +
+    stat_ellipse(level = 0.95, type = "norm", linewidth = 0.9) +
+    geom_hline(yintercept = 0, linetype = "dotted", color = "grey60") +
+    geom_vline(xintercept = 0, linetype = "dotted", color = "grey60") +
+    scale_color_manual(values = IMP_COLORS) +
+    labs(
+        title = "Full data: imputation model comparison",
+        x = expression(beta[x] ~ "(PRS effect on FVC)"),
+        y = expression(beta["x\u00d7t"] ~ "(PRS \u00d7 Time interaction)"),
+        color = "Imputation model"
+    )
+
+p_full
+
+ggsave("figures/compare_imputation_full.png", p_full,
+    device = ragg::agg_png, bg = "white", dpi = 500,
+    width = 8, height = 6, units = "in")
+```
+
+## Marginal Comparisons
+
+```{r}
+#| label: fig-marginal
+#| fig-width: 16
+#| fig-height: 10
+
+p_bx <- draws_df |>
+    ggplot(aes(x = beta_x, fill = imputation)) +
+    geom_density(alpha = 0.35, color = NA) +
+    scale_fill_manual(values = IMP_COLORS) +
+    facet_wrap(~ design_label, ncol = 4, scales = "free_y") +
+    labs(
+        title = expression(bold("Marginal posterior:") ~ beta[x]),
+        x = expression(beta[x]),
+        y = "Density",
+        fill = "Imputation"
+    )
+
+p_bxt <- draws_df |>
+    ggplot(aes(x = beta_xt, fill = imputation)) +
+    geom_density(alpha = 0.35, color = NA) +
+    scale_fill_manual(values = IMP_COLORS) +
+    facet_wrap(~ design_label, ncol = 4, scales = "free_y") +
+    labs(
+        title = expression(bold("Marginal posterior:") ~ beta["x\u00d7t"]),
+        x = expression(beta["x\u00d7t"]),
+        y = "Density",
+        fill = "Imputation"
+    )
+
+p_marginal <- p_bx / p_bxt + plot_layout(guides = "collect") &
+    theme(legend.position = "bottom")
+
+p_marginal
+
+ggsave("figures/compare_imputation_marginal.png", p_marginal,
+    device = ragg::agg_png, bg = "white", dpi = 500,
+    width = 16, height = 10, units = "in")
+```
+
+## Forest Plots
+
+```{r}
+#| label: summarize-draws
+prob_df <- draws_df |>
+    dplyr::summarize(
+        median_bx  = median(beta_x),
+        median_bxt = median(beta_xt),
+        q2_5_bx    = quantile(beta_x, 0.025),
+        q97_5_bx   = quantile(beta_x, 0.975),
+        q2_5_bxt   = quantile(beta_xt, 0.025),
+        q97_5_bxt  = quantile(beta_xt, 0.975),
+        p_bx_pos   = mean(beta_x > 0),
+        p_bx_small_01  = mean(abs(beta_x) < 0.01),
+        p_bx_small_005 = mean(abs(beta_x) < 0.005),
+        p_bxt_neg  = mean(beta_xt < 0),
+        p_joint    = mean(abs(beta_x) < 0.005 & beta_xt < 0),
+        .by = c(design_label, imputation)
+    )
+
+make_forest_data <- function(prob_data, est_col, lo_col, hi_col) {
+    designs <- levels(prob_data$design_label)
+    imps <- levels(prob_data$imputation)
+
+    # Full-data normal SE as reference for RE
+    full_ref <- dplyr::filter(prob_data,
+        design_label == "Full data", imputation == "Normal")
+    full_se <- (full_ref[[hi_col]] - full_ref[[lo_col]]) / (2 * qnorm(0.975))
+
+    rows <- list()
+    for (des in designs) {
+        rows <- c(rows, list(
+            data.frame(label = des, est = NA_real_, lo = NA_real_,
+                       hi = NA_real_, se = NA_real_, re = NA_real_)
+        ))
+        for (imp in imps) {
+            r <- dplyr::filter(prob_data,
+                design_label == des, imputation == imp)
+            this_se <- (r[[hi_col]] - r[[lo_col]]) / (2 * qnorm(0.975))
+            rows <- c(rows, list(data.frame(
+                label = imp,
+                est = r[[est_col]],
+                lo  = r[[lo_col]],
+                hi  = r[[hi_col]],
+                se  = this_se,
+                re  = (full_se / this_se)^2
+            )))
+        }
+        rows <- c(rows, list(
+            data.frame(label = "", est = NA_real_, lo = NA_real_,
+                       hi = NA_real_, se = NA_real_, re = NA_real_)
+        ))
+    }
+    dplyr::bind_rows(rows)
+}
+```
+
+### $\beta_x$ (PRS effect on FVC)
+
+```{r}
+#| label: fig-forest-bx
+#| fig-width: 12
+#| fig-height: 12
+
+fd_bx <- make_forest_data(prob_df, "median_bx", "q2_5_bx", "q97_5_bx")
+
+full_est <- dplyr::filter(prob_df, design_label == "Full data",
+                           imputation == "Normal")$median_bx
+
+p_bx <- bayes2stage::plot_forest(
+    fd_bx, ref_line = full_est,
+    xlab = expression(beta[x]),
+    ci_format = "%.4f (%.4f, %.4f)", se_format = "%.4f",
+    extra_col = list(col = "re", header = "RE", format = "%4.2f"),
+    font_family = ""
+) +
+    geom_vline(xintercept = 0, linetype = "dashed", color = "grey70") +
+    ggtitle(
+        expression(beta[x] ~ ": PRS effect on FVC by design and imputation model"),
+        subtitle = "Schildcrout 2019 model | 25% sampling fraction | Posterior median (95% CrI)"
+    ) +
+    theme(
+        plot.title = element_text(size = 13, face = "bold"),
+        plot.title.position = "plot",
+        plot.subtitle = element_text(size = 10)
+    )
+
+p_bx
+
+ggsave("figures/compare_forest_bx.png", p_bx,
+    device = ragg::agg_png, bg = "white", dpi = 500,
+    width = 12, height = 12, units = "in")
+```
+
+### $\beta_{x \times t}$ (PRS $\times$ Time interaction)
+
+```{r}
+#| label: fig-forest-bxt
+#| fig-width: 12
+#| fig-height: 12
+
+fd_bxt <- make_forest_data(prob_df, "median_bxt", "q2_5_bxt", "q97_5_bxt")
+
+full_est_bxt <- dplyr::filter(prob_df, design_label == "Full data",
+                                imputation == "Normal")$median_bxt
+
+p_bxt <- bayes2stage::plot_forest(
+    fd_bxt, ref_line = full_est_bxt,
+    xlab = expression(beta["x\u00d7t"]),
+    ci_format = "%.5f (%.5f, %.5f)", se_format = "%.5f",
+    extra_col = list(col = "re", header = "RE", format = "%4.2f"),
+    font_family = ""
+) +
+    geom_vline(xintercept = 0, linetype = "dashed", color = "grey70") +
+    ggtitle(
+        expression(beta["x\u00d7t"] ~ ": PRS \u00d7 Time interaction by design and imputation model"),
+        subtitle = "Schildcrout 2019 model | 25% sampling fraction | Posterior median (95% CrI)"
+    ) +
+    theme(
+        plot.title = element_text(size = 13, face = "bold"),
+        plot.title.position = "plot",
+        plot.subtitle = element_text(size = 10)
+    )
+
+p_bxt
+
+ggsave("figures/compare_forest_bxt.png", p_bxt,
+    device = ragg::agg_png, bg = "white", dpi = 500,
+    width = 12, height = 12, units = "in")
+```
+
+## Probability Statement Comparison
+
+```{r}
+#| label: tbl-comparison
+tbl_prob <- prob_df |>
+    dplyr::mutate(
+        design_family = dplyr::case_when(
+            design_label == "Full data" ~ "Full",
+            design_label == "SRS" ~ "SRS",
+            grepl("^ODS", design_label) ~ "ODS",
+            grepl("^BDS", design_label) ~ "BDS"
+        ),
+        target = dplyr::recode_values(
+            as.character(design_label),
+            c("Full data", "SRS") ~ "\u2014",
+            c("ODS (intercept)", "BDS (intercept)") ~ "Intercept",
+            c("ODS (slope)", "BDS (slope)") ~ "Slope",
+            c("ODS (ellipse)", "BDS (ellipse)") ~ "Ellipse"
+        ),
+        design_family = factor(design_family, levels = c("Full", "SRS", "ODS", "BDS")),
+        target = factor(target, levels = c("\u2014", "Intercept", "Slope", "Ellipse"))
+    ) |>
+    dplyr::arrange(design_family, target, imputation) |>
+    dplyr::select(design_family, target, imputation,
+        p_bx_pos, p_bx_small_01, p_bx_small_005, p_bxt_neg, p_joint) |>
+    gt(groupname_col = "design_family") |>
+    fmt_percent(columns = starts_with("p_"), decimals = 1) |>
+    cols_label(
+        target         = "Target",
+        imputation     = "Imputation",
+        p_bx_pos       = gt::md("P(&beta;~x~ > 0)"),
+        p_bx_small_01  = gt::md("P(|&beta;~x~| < 0.01)"),
+        p_bx_small_005 = gt::md("P(|&beta;~x~| < 0.005)"),
+        p_bxt_neg      = gt::md("P(&beta;~x&times;t~ < 0)"),
+        p_joint        = gt::md("P(|&beta;~x~| < 0.005 &amp; &beta;~x&times;t~ < 0)")
+    )
+
+tbl_prob
+
+gtsave(tbl_prob, "figures/compare_tbl_probabilities.png", zoom = 3)
+```
+
+## Diagnostics
+
+```{r}
+#| label: tbl-diagnostics
+diag_df <- draws_df |>
+    dplyr::distinct(design_label, imputation, divergent, max_treedepth, ebfmi_min)
+
+tbl_diag <- diag_df |>
+    gt(groupname_col = "design_label") |>
+    cols_label(
+        imputation    = "Imputation",
+        divergent     = "Divergent",
+        max_treedepth = "Max treedepth",
+        ebfmi_min     = "Min E-BFMI"
+    ) |>
+    fmt_number(columns = ebfmi_min, decimals = 2)
+
+tbl_diag
+
+gtsave(tbl_diag, "figures/compare_tbl_diagnostics.png", zoom = 3)
+```

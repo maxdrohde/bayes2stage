@@ -684,7 +684,7 @@ acml.lmem2 <- function(formula.fixed,
 
     acml.fit <- stats::nlm(LogLikeCAndScore2, InitVals, y=y, x=x, z=z, id=id, w.function=w.function,
                     cutpoints=cutpoints, SampProb=SampProb, Weights=Weights, ProfileCol=ProfileCol,
-                    stepmax=4, iterlim=250, check.analyticals = TRUE, print.level=2)
+                    stepmax=4, iterlim=5000, check.analyticals = TRUE, print.level=2)
 
     ## Calculate the observed information and then invert to get the covariance matrix
     npar        <- length(acml.fit$estimate)

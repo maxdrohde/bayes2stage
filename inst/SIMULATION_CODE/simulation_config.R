@@ -41,7 +41,7 @@ DEFAULT_INFERENCE_ARGS <- list(
 # ==============================================================================
 # Sampling design options: "full", "srs", "srs_no_imp", "ods", "bds"
 
-SAMPLING_DESIGNS <- c("srs", "srs_no_imp", "ods", "bds")
+SAMPLING_DESIGNS <- c("ods", "bds", "srs", "srs_no_imp")
 
 # Whether to fit the ACML model (requires ODS data)
 FIT_ACML <- TRUE
@@ -67,10 +67,11 @@ DEFAULT_PROP_LOW <- 0.40
 # Stan Model Specification
 # ==============================================================================
 # Distribution for x: "normal", "bernoulli", "beta_binomial", "negative_binomial"
-# Parameterization: "noncentered", "centered", "marginalized"
+# Set DEFAULT_MIXTURE_COMPONENTS to an integer >= 2 to use mixture imputation
+# (only for normal distribution), or NULL for single-component (default)
 
-DEFAULT_STAN_DISTRIBUTION <- "normal"
-DEFAULT_PARAMETERIZATION <- "marginalized"
+DEFAULT_STAN_DISTRIBUTION <- "bernoulli"
+DEFAULT_MIXTURE_COMPONENTS <- NULL
 
 # Covariates for main outcome model and imputation model
 DEFAULT_MAIN_FORMULA <- "~ z"
@@ -108,6 +109,8 @@ DEFAULT_PLOT_SUBSET_SIZE <- 200L
 
 #' Get the simulation parameter grid
 #'
+#' Defaults match Schildcrout 2019 Web Appendix simulation setup.
+#'
 #' @return A tibble with all combinations of simulation parameters
 get_simulation_grid <- function() {
     grid <- tidyr::crossing(
@@ -115,37 +118,50 @@ get_simulation_grid <- function() {
         N = c(300L),
         sampling_fraction = c(0.25),
         sampling_type = c("intercept"),
-        M = c(5L),
 
-        # Main model coefficients (VARY THESE)
-        beta_x = c(-1),
-        beta_z = c(-2),
+        # Main model coefficients
+        # Paper: (β_0, β_s, β_t, β_st, β_c) = (75, -0.5, -1, -0.5, -2)
+        alpha_main = c(75),
+        beta_x = c(-0.5),
+        # beta_z: 0 (none), -2 (moderate), -4 (strong z effect on intercept)
+        beta_z = c(0, -2, -4),
         beta_t = c(-1),
         beta_t_x_interaction = c(-0.5),
         beta_t_z_interaction = c(0),
 
-        # Main model other parameters (usually fixed)
-        alpha_main = c(0),
-        error_sd = c(1),
+        # Residual error (fixed at low noise)
+        error_sd = c(sqrt(12.25)),
 
         # Random effects
-        rand_intercept_sd = c(3),
-        rand_slope_sd = c(1),
+        # rand_intercept_sd: controls whether ODS selects on z vs random effects
+        # Larger values mean ODS selects more on random effects, less on z
+        rand_intercept_sd = c(1, 3, 6, 9),
+        rand_slope_sd = c(sqrt(1.56)),
         rand_eff_corr = c(0),
 
-        # X distribution
-        x_dist = c("normal"),
+        # X distribution: snp ~ Bernoulli(0.25)
+        x_dist = c("bernoulli"),
+        direction = c("z_given_x"),
+        x_prevalence = c(0.25),
         x_size = c(NA_integer_),
         x_disp_param = c(NA_real_),
 
-        # Imputation model
-        gamma0 = c(0),
-        gamma1 = c(0.5),
+        # Imputation model: c | snp ~ N(0.25 + gamma1*snp, 1)
+        # gamma1 = 0: z independent of x (ACML should not help)
+        # gamma1 > 0: z predicts x (ACML should help, more as gamma1 increases)
+        gamma0 = c(0.25),
+        gamma1 = c(0, 0.5, 1.0, 2.0),
         gamma2 = c(0),
-        gamma_sd = c(1)
+        gamma_sd = c(1),
+
+        # Time scale: integer visit numbers (0, 1, 2, ..., M-1)
+        time_scale = c("integer"),
+
+        # M as list column to support variable observations per subject
+        # Paper: M sampled from {4, 5, 6}
+        M = list(c(4L, 5L, 6L))
     )
-    result <- grid
-    return(result)
+    return(grid)
 }
 
 
@@ -258,7 +274,7 @@ get_all_true_parameter_values <- function() {
 generate_simulation_data <- function(params) {
     data <- bayes2stage::generate_data(
         N = params[["N"]],
-        M = params[["M"]],
+        M = params[["M"]][[1]],
         alpha_main = params[["alpha_main"]],
         beta_x = params[["beta_x"]],
         beta_z = params[["beta_z"]],
@@ -266,7 +282,9 @@ generate_simulation_data <- function(params) {
         beta_t_x_interaction = params[["beta_t_x_interaction"]],
         beta_t_z_interaction = params[["beta_t_z_interaction"]],
         error_sd = params[["error_sd"]],
+        direction = params[["direction"]],
         x_dist = params[["x_dist"]],
+        x_prevalence = params[["x_prevalence"]],
         x_size = params[["x_size"]],
         x_disp_param = params[["x_disp_param"]],
         rand_intercept_sd = params[["rand_intercept_sd"]],
@@ -275,7 +293,8 @@ generate_simulation_data <- function(params) {
         gamma0 = params[["gamma0"]],
         gamma1 = params[["gamma1"]],
         gamma2 = params[["gamma2"]],
-        gamma_sd = params[["gamma_sd"]]
+        gamma_sd = params[["gamma_sd"]],
+        time_scale = params[["time_scale"]]
     )
     return(data)
 }

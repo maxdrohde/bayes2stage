@@ -84,7 +84,7 @@ cached_dataset <- "processed_data/combined_data"
 
 if (!fs::dir_exists(cached_dataset)) {
     cli::cli_abort(
-        "Data not found at {.path {cached_dataset}}. Run batch.R first."
+        "Data not found at {.path {cached_dataset}}. Run process_results.R first."
     )
 }
 
@@ -109,12 +109,6 @@ if (nrow(sim_results) == 0) {
 has_mcmc_diagnostics <- "rhat" %in% names(sim_results) &&
     any(!is.na(sim_results$rhat))
 
-has_hmc_diagnostics <- has_mcmc_diagnostics &&
-    "divergent_transitions" %in% names(sim_results) &&
-    any(!is.na(sim_results$divergent_transitions))
-
-mcmc_summary <- NULL
-hmc_summary <- NULL
 p_rhat <- NULL
 p_ess <- NULL
 
@@ -123,22 +117,13 @@ if (has_mcmc_diagnostics) {
         dplyr::filter(!is.na(rhat)) |>
         dplyr::select(type, rhat, ess_bulk, ess_tail)
 
-    mcmc_summary <- mcmc_diagnostics |>
-        dplyr::summarise(
-            `Rhat (mean)` = round(mean(rhat, na.rm = TRUE), 3),
-            `Rhat (max)` = round(max(rhat, na.rm = TRUE), 3),
-            `% Rhat>threshold` = round(
-                100 * mean(rhat > DEFAULT_RHAT_THRESHOLD, na.rm = TRUE),
-                1
-            ),
-            `ESS bulk (med)` = round(median(ess_bulk, na.rm = TRUE), 0),
-            `ESS bulk (min)` = round(min(ess_bulk, na.rm = TRUE), 0),
-            `ESS tail (med)` = round(median(ess_tail, na.rm = TRUE), 0),
-            `ESS tail (min)` = round(min(ess_tail, na.rm = TRUE), 0),
-            .by = type
-        ) |>
-        dplyr::rename(Type = type)
+    # Check if filtering removed all rows
+    if (nrow(mcmc_diagnostics) == 0L) {
+        has_mcmc_diagnostics <- FALSE
+    }
+}
 
+if (has_mcmc_diagnostics) {
     rhat_max <- max(mcmc_diagnostics$rhat, na.rm = TRUE)
     rhat_xlim_upper <- max(DEFAULT_RHAT_THRESHOLD + 0.01, rhat_max * 1.01)
 
@@ -203,32 +188,6 @@ if (has_mcmc_diagnostics) {
             y = ""
         ) +
         theme(legend.position = "none")
-
-    if (has_hmc_diagnostics) {
-        hmc_diagnostics <- sim_results |>
-            dplyr::filter(!is.na(divergent_transitions))
-
-        hmc_summary <- hmc_diagnostics |>
-            dplyr::summarise(
-                `Percent with Divergences` = (100 *
-                    mean(divergent_transitions > 0, na.rm = TRUE)) |>
-                    round(1),
-                `mean(Divergences)` = mean(
-                    divergent_transitions,
-                    na.rm = TRUE
-                ) |>
-                    round(1),
-                `Percent with Max Treedepth` = (100 *
-                    mean(max_treedepth_exceeded > 0, na.rm = TRUE)) |>
-                    round(1),
-                `mean(E-BFMI)` = mean(ebfmi_min, na.rm = TRUE) |>
-                    round(2),
-                `min(E-BFMI)` = min(ebfmi_min, na.rm = TRUE) |>
-                    round(2),
-                .by = type
-            ) |>
-            dplyr::rename(Type = type)
-    }
 }
 
 # ------------------------------------------------------------------------------
@@ -446,7 +405,18 @@ boot_var_wide <- boot_samples |>
 baseline_type <- DEFAULT_BASELINE_TYPE
 orig_var <- stats::setNames((orig_stats$se_emp)^2, orig_stats$type)
 
-rel_eff_results <- purrr::map_df(
+if (!baseline_type %in% names(orig_var)) {
+    cli::cli_warn(
+        "Baseline type {.val {baseline_type}} not found in results. Skipping relative efficiency."
+    )
+    rel_eff_results <- tibble::tibble(
+        type = character(),
+        rel_eff = numeric(),
+        rel_eff_lower = numeric(),
+        rel_eff_upper = numeric()
+    )
+} else {
+    rel_eff_results <- purrr::map_df(
     setdiff(names(orig_var), baseline_type),
     \(comp_type) {
         boot_ratios <- boot_var_wide[[baseline_type]] /
@@ -460,7 +430,8 @@ rel_eff_results <- purrr::map_df(
             rel_eff_upper = quantile(boot_ratios, 1 - alpha / 2, na.rm = TRUE)
         )
     }
-)
+    )
+}
 
 # ------------------------------------------------------------------------------
 # Build output structures for downstream plotting code
@@ -819,7 +790,13 @@ combined_table <- purrr::reduce(
 # ------------------------------------------------------------------------------
 # Get N and sampling_fraction for the current setting
 # ------------------------------------------------------------------------------
-current_grid_row <- dplyr::slice(get_simulation_grid(), selected_setting)
+simulation_grid <- get_simulation_grid()
+if (selected_setting < 1L || selected_setting > nrow(simulation_grid)) {
+    cli::cli_abort(
+        "sim_setting must be between 1 and {nrow(simulation_grid)}, got: {selected_setting}"
+    )
+}
+current_grid_row <- dplyr::slice(simulation_grid, selected_setting)
 current_N <- current_grid_row[["N"]]
 current_sampled_frac <- current_grid_row[["sampling_fraction"]]
 current_n_sampled <- as.integer(current_N * current_sampled_frac)
@@ -858,25 +835,7 @@ table_grob <- gridExtra::tableGrob(
     theme = table_theme
 )
 
-p_table <- wrap_elements(table_grob)
-
-if (has_mcmc_diagnostics) {
-    mcmc_table_grob <- gridExtra::tableGrob(
-        mcmc_summary,
-        rows = NULL,
-        theme = table_theme
-    )
-    p_mcmc_table <- wrap_elements(mcmc_table_grob) + ggtitle("MCMC Diagnostics")
-}
-
-if (has_hmc_diagnostics) {
-    hmc_table_grob <- gridExtra::tableGrob(
-        hmc_summary,
-        rows = NULL,
-        theme = table_theme
-    )
-    p_hmc_table <- wrap_elements(hmc_table_grob) + ggtitle("HMC Diagnostics")
-}
+p_table <- patchwork::wrap_elements(table_grob)
 
 # ------------------------------------------------------------------------------
 # Combined plot
@@ -906,6 +865,12 @@ plot_theme <- theme(
 # Settings summary panel
 # ------------------------------------------------------------------------------
 
+x_size_str <- if (is.na(current_grid_row[["x_size"]])) {
+    ""
+} else {
+    glue::glue("\n  x_size: {current_grid_row$x_size}")
+}
+
 settings_col1 <- glue::glue(
     "TARGET
   parameter: {selected_parameter}
@@ -914,9 +879,10 @@ settings_col1 <- glue::glue(
 
 DATA GENERATION
   N: {current_grid_row$N}
+  n_sampled: {current_n_sampled}
   sampling_frac: {current_grid_row$sampling_fraction}
   M: {current_grid_row$M}
-  x_dist: {current_grid_row$x_dist}
+  x_dist: {x_dist_label}{x_size_str}
 
 SAMPLING DESIGN
   type: {current_grid_row$sampling_type}
@@ -940,6 +906,17 @@ RANDOM EFFECTS
   corr: {current_grid_row$rand_eff_corr}"
 )
 
+mcmc_settings_str <- if (DEFAULT_INFERENCE_ARGS$inference_method == "mcmc") {
+    glue::glue(
+        "\n  chains: {DEFAULT_INFERENCE_ARGS$n_chains}
+  warmup: {DEFAULT_INFERENCE_ARGS$iter_warmup}
+  sampling: {DEFAULT_INFERENCE_ARGS$iter_sampling}
+  adapt_delta: {DEFAULT_INFERENCE_ARGS$adapt_delta}"
+    )
+} else {
+    ""
+}
+
 settings_col3 <- glue::glue(
     "IMPUTATION MODEL
   gamma0: {current_grid_row$gamma0}
@@ -949,10 +926,12 @@ settings_col3 <- glue::glue(
 
 STAN OPTIONS
   distribution: {DEFAULT_STAN_DISTRIBUTION}
-  parameterization: {DEFAULT_PARAMETERIZATION}
-  inference: {DEFAULT_INFERENCE_ARGS$inference_method}
+  mixture_components: {DEFAULT_MIXTURE_COMPONENTS %||% 'none'}
+  inference: {DEFAULT_INFERENCE_ARGS$inference_method}{mcmc_settings_str}
 
 ANALYSIS
+  ci_level: {DEFAULT_CI_LEVEL}
+  baseline: {gsub('\n', ' ', DEFAULT_BASELINE_TYPE)}
   bootstrap_reps: {DEFAULT_N_BOOT_REPS}
   n_iters: {n_iters}
   generated: {format(Sys.time(), '%Y-%m-%d %H:%M')}"
@@ -975,8 +954,8 @@ settings_grob <- grid::textGrob(
     gp = grid::gpar(fontsize = 11, fontfamily = "Source Code Pro")
 )
 
-p_settings <- wrap_elements(settings_grob) +
-    plot_annotation(title = "Simulation Settings") &
+p_settings <- patchwork::wrap_elements(settings_grob) +
+    patchwork::plot_annotation(title = "Simulation Settings") &
     theme(
         plot.title = element_text(size = 11, face = "bold", hjust = 0.5),
         plot.background = element_rect(fill = "gray98", color = NA)
@@ -1044,7 +1023,7 @@ p_left <- p_grid
 # Combine: Left Panel | Right Panel
 combined_plot <- (p_left | p_right) +
     patchwork::plot_layout(widths = c(6, 1)) +
-    plot_annotation(title = plot_title, theme = plot_theme)
+    patchwork::plot_annotation(title = plot_title, theme = plot_theme)
 
 # ------------------------------------------------------------------------------
 # Save output

@@ -1,0 +1,311 @@
+---
+title: "LHS Case Study: Joint Credible Regions by Sampling Design"
+format:
+  html:
+    toc: true
+    code-fold: true
+    embed-resources: true
+---
+
+## Setup
+
+```{r}
+#| label: setup
+renv::load("/Users/max/r_package_development/bayes2stage")
+library(ggplot2)
+library(patchwork)
+theme_set(cowplot::theme_cowplot(font_size = 12, font_family = "Source Sans Pro"))
+
+SCRIPT_DIR <- "."
+source("lhs_config.R")
+fs::dir_create("figures")
+```
+
+## Load Data
+
+```{r}
+#| label: load-data
+df <- load_lhs_data()
+N_SUBJECTS <- length(unique(df$id))
+N_SAMPLED <- as.integer(SAMPLING_FRACTION * N_SUBJECTS)
+```
+
+The LHS cohort has **`r N_SUBJECTS` subjects** with longitudinal FVC measurements and a polygenic risk score (PRS) computed from 43 SNPs. Each two-stage design selects **`r N_SAMPLED` subjects (25%)** for PRS measurement; the Bayesian model imputes PRS for the remaining 75%.
+
+## Load Pre-Computed Posterior Draws
+
+Results are pre-computed by `fit_design.R` via `fit_all_designs.sh`. Each design writes posterior draws to `cr_results/<design>.parquet`.
+
+```{r}
+#| label: load-draws
+result_files <- fs::dir_ls("cr_results", glob = "*.parquet")
+cli::cli_alert_info("Found {length(result_files)} result files")
+
+draws_df <- purrr::map(result_files, arrow::read_parquet) |>
+    dplyr::bind_rows()
+
+DESIGN_LABELS <- c(
+    full          = "Full data",
+    srs           = "SRS",
+    ods_intercept = "ODS (intercept)",
+    ods_slope     = "ODS (slope)",
+    ods_ellipse   = "ODS (ellipse)",
+    bds_intercept = "BDS (intercept)",
+    bds_slope     = "BDS (slope)",
+    bds_ellipse   = "BDS (ellipse)"
+)
+
+DESIGN_ORDER <- c(
+    "Full data", "SRS",
+    "ODS (intercept)", "ODS (slope)", "ODS (ellipse)",
+    "BDS (intercept)", "BDS (slope)", "BDS (ellipse)"
+)
+
+draws_df <- draws_df |>
+    dplyr::mutate(design_label = factor(DESIGN_LABELS[design], levels = DESIGN_ORDER))
+
+cli::cli_alert_success(
+    "Loaded {nrow(draws_df)} total draws across {length(unique(draws_df$design))} designs"
+)
+```
+
+## Joint Credible Regions
+
+```{r}
+#| label: design-colors
+DESIGN_COLORS <- c(
+    "Full data"        = "black",
+    "SRS"              = "grey50",
+    "ODS (intercept)"  = "#1b9e77",
+    "ODS (slope)"      = "#7570b3",
+    "ODS (ellipse)"    = "#e7298a",
+    "BDS (intercept)"  = "#d95f02",
+    "BDS (slope)"      = "#66a61e",
+    "BDS (ellipse)"    = "#e6ab02"
+)
+```
+
+### All designs
+
+```{r}
+#| label: fig-credible-all
+#| fig-width: 10
+#| fig-height: 8
+
+p_all <- draws_df |>
+    ggplot(aes(x = beta_x, y = beta_xt, color = design_label)) +
+    stat_ellipse(level = 0.95, linewidth = 0.9) +
+    geom_hline(yintercept = 0, linetype = "dotted", color = "grey60") +
+    geom_vline(xintercept = 0, linetype = "dotted", color = "grey60") +
+    scale_color_manual(values = DESIGN_COLORS) +
+    labs(
+        title = "Joint 95% credible regions for PRS effects on FVC",
+        subtitle = "Schildcrout 2019 model | 25% sampling fraction",
+        x = expression(beta[x] ~ "(PRS effect on FVC)"),
+        y = expression(beta["x\u00d7t"] ~ "(PRS \u00d7 Time interaction)"),
+        color = "Design"
+    )
+
+p_all
+
+ggsave("figures/credible_regions_all.png", p_all,
+    device = ragg::agg_png, bg = "white", dpi = 500,
+    width = 10, height = 8, units = "in")
+```
+
+### ODS designs vs reference
+
+```{r}
+#| label: fig-credible-ods
+#| fig-width: 10
+#| fig-height: 7
+
+ods_designs <- c("Full data", "SRS",
+                 "ODS (intercept)", "ODS (slope)", "ODS (ellipse)")
+
+p_ods <- draws_df |>
+    dplyr::filter(design_label %in% ods_designs) |>
+    ggplot(aes(x = beta_x, y = beta_xt, color = design_label)) +
+    stat_ellipse(level = 0.95, linewidth = 0.9) +
+    geom_hline(yintercept = 0, linetype = "dotted", color = "grey60") +
+    geom_vline(xintercept = 0, linetype = "dotted", color = "grey60") +
+    scale_color_manual(values = DESIGN_COLORS[ods_designs]) +
+    labs(
+        title = "ODS designs: joint credible regions",
+        x = expression(beta[x]),
+        y = expression(beta["x\u00d7t"]),
+        color = "Design"
+    )
+
+p_ods
+
+ggsave("figures/credible_regions_ods.png", p_ods,
+    device = ragg::agg_png, bg = "white", dpi = 500,
+    width = 10, height = 7, units = "in")
+```
+
+### BDS designs vs reference
+
+```{r}
+#| label: fig-credible-bds
+#| fig-width: 10
+#| fig-height: 7
+
+bds_designs <- c("Full data", "SRS",
+                 "BDS (intercept)", "BDS (slope)", "BDS (ellipse)")
+
+p_bds <- draws_df |>
+    dplyr::filter(design_label %in% bds_designs) |>
+    ggplot(aes(x = beta_x, y = beta_xt, color = design_label)) +
+    stat_ellipse(level = 0.95, linewidth = 0.9) +
+    geom_hline(yintercept = 0, linetype = "dotted", color = "grey60") +
+    geom_vline(xintercept = 0, linetype = "dotted", color = "grey60") +
+    scale_color_manual(values = DESIGN_COLORS[bds_designs]) +
+    labs(
+        title = "BDS designs: joint credible regions",
+        x = expression(beta[x]),
+        y = expression(beta["x\u00d7t"]),
+        color = "Design"
+    )
+
+p_bds
+
+ggsave("figures/credible_regions_bds.png", p_bds,
+    device = ragg::agg_png, bg = "white", dpi = 500,
+    width = 10, height = 7, units = "in")
+```
+
+### Faceted by design
+
+```{r}
+#| label: fig-credible-facet
+#| fig-width: 14
+#| fig-height: 10
+
+full_draws <- draws_df |>
+    dplyr::filter(design == "full") |>
+    dplyr::select(-design, -design_label)
+
+p_facet <- draws_df |>
+    dplyr::filter(design != "full") |>
+    ggplot(aes(x = beta_x, y = beta_xt)) +
+    stat_ellipse(
+        data = full_draws, aes(x = beta_x, y = beta_xt),
+        level = 0.95, linewidth = 0.7, color = "grey40", linetype = "dashed"
+    ) +
+    stat_ellipse(level = 0.95, color = "#3574a7", linewidth = 0.9) +
+    geom_hline(yintercept = 0, linetype = "dotted", color = "grey60") +
+    geom_vline(xintercept = 0, linetype = "dotted", color = "grey60") +
+    facet_wrap(~ design_label, ncol = 4) +
+    labs(
+        title = "Joint credible regions by design (grey dashed = full data reference)",
+        x = expression(beta[x] ~ "(PRS effect on FVC)"),
+        y = expression(beta["x\u00d7t"] ~ "(PRS \u00d7 Time interaction)")
+    )
+
+p_facet
+
+ggsave("figures/credible_regions_faceted.png", p_facet,
+    device = ragg::agg_png, bg = "white", dpi = 500,
+    width = 14, height = 10, units = "in")
+```
+
+## Bayesian Probability Statements
+
+```{r}
+#| label: probability-statements
+prob_df <- draws_df |>
+    dplyr::summarize(
+        p_bx_pos   = mean(beta_x > 0),
+        p_bxt_neg  = mean(beta_xt < 0),
+        p_joint    = mean(beta_x > 0 & beta_xt < 0),
+        median_bx  = median(beta_x),
+        median_bxt = median(beta_xt),
+        q2_5_bx    = quantile(beta_x, 0.025),
+        q97_5_bx   = quantile(beta_x, 0.975),
+        q2_5_bxt   = quantile(beta_xt, 0.025),
+        q97_5_bxt  = quantile(beta_xt, 0.975),
+        .by = design_label
+    )
+```
+
+### Summary Table
+
+```{r}
+#| label: tbl-probabilities
+library(gt)
+
+prob_df |>
+    gt() |>
+    cols_label(
+        design_label = "Design",
+        p_bx_pos     = gt::md("P(&beta;~x~ > 0)"),
+        p_bxt_neg    = gt::md("P(&beta;~x&times;t~ < 0)"),
+        p_joint      = gt::md("P(&beta;~x~ > 0 & &beta;~x&times;t~ < 0)"),
+        median_bx    = gt::md("Median &beta;~x~"),
+        median_bxt   = gt::md("Median &beta;~x&times;t~"),
+        q2_5_bx      = gt::md("&beta;~x~ 2.5%"),
+        q97_5_bx     = gt::md("&beta;~x~ 97.5%"),
+        q2_5_bxt     = gt::md("&beta;~x&times;t~ 2.5%"),
+        q97_5_bxt    = gt::md("&beta;~x&times;t~ 97.5%")
+    ) |>
+    fmt_number(columns = starts_with("median") | starts_with("q"), decimals = 3) |>
+    fmt_percent(columns = starts_with("p_"), decimals = 1) |>
+    tab_spanner(label = "Posterior probabilities", columns = starts_with("p_")) |>
+    tab_spanner(label = gt::md("&beta;~x~ (PRS effect)"),
+                columns = c(median_bx, q2_5_bx, q97_5_bx)) |>
+    tab_spanner(label = gt::md("&beta;~x&times;t~ (PRS &times; Time)"),
+                columns = c(median_bxt, q2_5_bxt, q97_5_bxt))
+```
+
+### Interpretation
+
+```{r}
+#| label: interpretation
+#| output: asis
+
+full <- dplyr::filter(prob_df, design_label == "Full data")
+
+cat(glue::glue("
+**Full-data reference.** Using all {N_SUBJECTS} subjects, the posterior median
+of $\\beta_x$ (cross-sectional PRS effect on FVC) is
+{round(full$median_bx, 3)} with 95% credible interval
+[{round(full$q2_5_bx, 3)}, {round(full$q97_5_bx, 3)}].
+There is a **{scales::label_percent(accuracy = 0.1)(full$p_bx_pos)}
+posterior probability** that higher PRS is associated with higher baseline FVC.
+
+The posterior median of $\\beta_{{x \\times t}}$ (PRS $\\times$ Time interaction)
+is {round(full$median_bxt, 4)} with 95% credible interval
+[{round(full$q2_5_bxt, 4)}, {round(full$q97_5_bxt, 4)}].
+There is a **{scales::label_percent(accuracy = 0.1)(full$p_bxt_neg)}
+posterior probability** that higher PRS accelerates FVC decline over time.
+
+Jointly, the posterior probability that higher PRS is associated with higher
+baseline FVC *and* faster decline is
+**{scales::label_percent(accuracy = 0.1)(full$p_joint)}**.
+
+**Design comparison.** All two-stage designs measure PRS on only 25% of
+subjects, yet the credible regions overlap substantially with the full-data
+reference. The ellipse designs, which oversample subjects with extreme values
+in the bivariate (intercept, slope) space, produce credible regions most
+similar to the full-data benchmark.
+"))
+```
+
+## Diagnostics
+
+```{r}
+#| label: diagnostics
+diag_df <- draws_df |>
+    dplyr::distinct(design_label, divergent, max_treedepth, ebfmi_min)
+
+diag_df |>
+    gt() |>
+    cols_label(
+        design_label  = "Design",
+        divergent     = "Divergent transitions",
+        max_treedepth = "Max treedepth exceeded",
+        ebfmi_min     = "Min E-BFMI"
+    ) |>
+    fmt_number(columns = ebfmi_min, decimals = 2)
+```

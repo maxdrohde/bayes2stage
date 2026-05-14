@@ -1,4 +1,12 @@
 ################################################################################
+# Activate renv from package root
+################################################################################
+
+# Ensures remote machines use the renv library, not the system library
+Sys.setenv(RENV_PROJECT = normalizePath("../.."))
+source("../../renv/activate.R")
+
+################################################################################
 # Command Line Arguments
 ################################################################################
 
@@ -45,9 +53,7 @@ source("simulation_config.R")
 dir_path <- glue::glue("results/{i}")
 
 # Create the results_{i} folder if needed
-if (!fs::dir_exists(dir_path)) {
-  fs::dir_create(dir_path)
-}
+fs::dir_create(dir_path)
 
 ################################################################################
 # Simulation scenario grid
@@ -69,7 +75,6 @@ cli::cli_rule()
 N <- params[["N"]]
 n_sampled <- as.integer(params[["sampling_fraction"]] * N)
 
-# Define the sampling scheme for ODS and BDS
 ################################################################################
 # Run simulation
 ################################################################################
@@ -81,7 +86,6 @@ fit_model <- function(data) {
       main_model_formula = DEFAULT_MAIN_FORMULA,
       imputation_model_formula = DEFAULT_IMPUTATION_FORMULA,
       imputation_distribution = DEFAULT_STAN_DISTRIBUTION,
-      parameterization = DEFAULT_PARAMETERIZATION,
       seed = seed
     ),
     DEFAULT_INFERENCE_ARGS
@@ -91,33 +95,33 @@ fit_model <- function(data) {
 }
 
 fit_acml <- function(data, cutoff_low, cutoff_high) {
-  result <- tryCatch(
-    {
-      invisible(utils::capture.output({
-        acml_fit <- bayes2stage::fit_acml_ods(data,
-          cutoff_low = cutoff_low,
-          cutoff_high = cutoff_high
-        )
-      }))
-      # Use model_summary() to standardize output format
-      out <- bayes2stage::model_summary(acml_fit)
-      out$type <- "acml_ods"
-      out
-    },
-    error = \(e) {
-      data.frame(
-        parameter = NA_character_,
-        mean = NA_real_,
-        sd = NA_real_,
-        type = "acml_ods",
-        divergent_transitions = NA_integer_,
-        max_treedepth_exceeded = NA_integer_,
-        ebfmi_min = NA_real_,
-        message = e$message
-      )
-    }
-  )
-  return(result)
+    result <- tryCatch(
+        {
+            acml_fit <- bayes2stage::fit_acml_ods(
+                data,
+                cutoff_low = cutoff_low,
+                cutoff_high = cutoff_high,
+                main_model_formula = DEFAULT_MAIN_FORMULA
+            )
+            # Use model_summary() to standardize output format
+            out <- bayes2stage::model_summary(acml_fit)
+            out$type <- "acml_ods"
+            out
+        },
+        error = \(e) {
+            data.frame(
+                parameter = NA_character_,
+                mean = NA_real_,
+                sd = NA_real_,
+                type = "acml_ods",
+                divergent_transitions = NA_integer_,
+                max_treedepth_exceeded = NA_integer_,
+                ebfmi_min = NA_real_,
+                message = conditionMessage(e)
+            )
+        }
+    )
+    return(result)
 }
 
 df <- generate_simulation_data(params)
@@ -188,6 +192,11 @@ if (FIT_ACML) {
 }
 
 res <- dplyr::bind_rows(results_list)
+
+# Ensure message column exists for consistent parquet schema
+if (!"message" %in% names(res)) {
+    res$message <- NA_character_
+}
 
 ################################################################################
 # Add metadata to results file
