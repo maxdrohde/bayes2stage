@@ -42,6 +42,11 @@ the CI text column.}
 \item{se_format}{\code{\link[=sprintf]{sprintf()}} format string applied to \code{se} for the SE text
 column.}
 
+\item{extra_col}{Optional named list specifying an additional numeric column
+placed between the SE and CI columns, or \code{NULL} to omit. Required elements:
+\code{col} (name of the column in \code{data}), \code{format} (\code{\link[=sprintf]{sprintf()}} format string),
+and \code{header} (column header text).}
+
 \item{font_family}{Font family for labels, headers, and axis text.}
 
 \item{mono_family}{Monospace font family for numeric columns.}

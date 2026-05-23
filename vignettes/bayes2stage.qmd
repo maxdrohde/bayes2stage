@@ -86,7 +86,7 @@ The Stan-based model jointly estimates the outcome model and imputes missing `x`
 ```{r}
 fit <- fit_stan_model(
   data = stage2_data,
-  main_model_formula = ~ x + z + t,
+  main_model_formula = ~ z,
   imputation_model_formula = ~ z,
   imputation_distribution = "normal",
   n_chains = 4,
@@ -99,8 +99,8 @@ fit <- fit_stan_model(
 ### Step 4: Examine Results
 
 ```{r}
-# Parameter summaries
-fit$summary(variables = c("alpha", "beta_x", "beta_z", "beta_t"))
+# Parameter summaries (x, t, x:t are separate Stan parameters; z is beta[1])
+fit$summary(variables = c("alpha_main", "beta_x", "beta_t", "beta_x_t_interaction", "beta[1]"))
 
 # Trace plots for diagnostics
 mcmc_trace(fit)

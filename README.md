@@ -93,7 +93,7 @@ Subjects not selected have their `x` values set to `NA`.
 ``` r
 fit <- fit_stan_model(
   data = stage2_data,
-  main_model_formula = ~ x + z + t,
+  main_model_formula = ~ z,
   imputation_model_formula = ~ z,
   imputation_distribution = "normal",
   n_chains = 4,
@@ -101,8 +101,8 @@ fit <- fit_stan_model(
   iter_sampling = 1000
 )
 
-# View results
-fit$summary(variables = c("beta_x", "beta_z", "beta_t"))
+# View results (x, t, and x:t are separate Stan parameters; z is beta[1])
+fit$summary(variables = c("beta_x", "beta_t", "beta_x_t_interaction", "beta[1]"))
 ```
 
 The Stan model jointly:

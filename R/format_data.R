@@ -76,6 +76,11 @@ format_data_mcmc <- function(data,
   main_model_formula <- prepare_formula(main_model_formula, "main_model_formula")
   imputation_model_formula <- prepare_formula(imputation_model_formula, "imputation_model_formula")
 
+  stopifnot(
+      "`main_model_formula` must not reference `x` or `t` (modeled as separate Stan parameters)." =
+          !any(c("x", "t") %in% all.vars(main_model_formula))
+  )
+
   X <- stats::model.matrix(main_model_formula, data = data, na.action = stats::na.pass)
   Z <- stats::model.matrix(imputation_model_formula, data = id_df, na.action = stats::na.pass)
 

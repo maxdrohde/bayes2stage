@@ -21,6 +21,10 @@
 #'   the CI text column.
 #' @param se_format [sprintf()] format string applied to `se` for the SE text
 #'   column.
+#' @param extra_col Optional named list specifying an additional numeric column
+#'   placed between the SE and CI columns, or `NULL` to omit. Required elements:
+#'   `col` (name of the column in `data`), `format` ([sprintf()] format string),
+#'   and `header` (column header text).
 #' @param font_family Font family for labels, headers, and axis text.
 #' @param mono_family Monospace font family for numeric columns.
 #'

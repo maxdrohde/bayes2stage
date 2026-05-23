@@ -28,5 +28,9 @@
 inst/SIMULATION_CODE/\.vscode$
 inst/SIMULATION_CODE/renv$
 inst/SIMULATION_CODE/renv\.lock$
+^inst/SIMULATION_CODE/plots$
+^inst/SIMULATION_CODE/logs$
+^inst/SIMULATION_CODE/results$
+^inst/SIMULATION_CODE/processed_data$
 src/stan/mixed_effects_imputation_[^.]+$
 ^session_transcript\.txt$
