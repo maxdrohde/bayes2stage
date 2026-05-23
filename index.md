@@ -22,11 +22,11 @@ Two-stage designs are useful when:
 The package supports three sampling strategies for selecting which
 subjects to measure:
 
-| Design                     | Function                                                                          | Selection Based On       |
-|----------------------------|-----------------------------------------------------------------------------------|--------------------------|
-| Simple Random Sampling     | [`srs_design()`](https://maxdrohde.github.io/bayes2stage/reference/srs_design.md) | Random selection         |
+| Design | Function | Selection Based On |
+|----|----|----|
+| Simple Random Sampling | [`srs_design()`](https://maxdrohde.github.io/bayes2stage/reference/srs_design.md) | Random selection |
 | Outcome-Dependent Sampling | [`ods_design()`](https://maxdrohde.github.io/bayes2stage/reference/ods_design.md) | OLS intercepts or slopes |
-| BLUP-Dependent Sampling    | [`bds_design()`](https://maxdrohde.github.io/bayes2stage/reference/bds_design.md) | Mixed model BLUPs        |
+| BLUP-Dependent Sampling | [`bds_design()`](https://maxdrohde.github.io/bayes2stage/reference/bds_design.md) | Mixed model BLUPs |
 
 ODS and BDS designs oversample from the tails of the trajectory
 distribution, improving efficiency for detecting covariate effects.
@@ -34,6 +34,7 @@ distribution, improving efficiency for detecting covariate effects.
 ## Installation
 
 ``` r
+
 # install.packages("devtools")
 devtools::install_github("maxdrohde/bayes2stage")
 ```
@@ -43,6 +44,7 @@ devtools::install_github("maxdrohde/bayes2stage")
 ### 1. Generate or load longitudinal data
 
 ``` r
+
 library(bayes2stage)
 
 set.seed(123)
@@ -58,15 +60,19 @@ data <- generate_data(
 ```
 
 The outcome model is:
-$$y_{ij} = \alpha + \beta_{x}x_{i} + \beta_{z}z_{i} + \left( \beta_{t} + b_{1i} \right)t_{ij} + \beta_{tx}x_{i}t_{ij} + b_{0i} + \epsilon_{ij}$$
+``` math
+y_{ij} = \alpha + \beta_x x_i + \beta_z z_i + (\beta_t + b_{1i}) t_{ij} + \beta_{tx} x_i t_{ij} + b_{0i} + \epsilon_{ij}
+```
 
-where $b_{0i}$ and $b_{1i}$ are correlated random intercepts and slopes.
+where $`b_{0i}`$ and $`b_{1i}`$ are correlated random intercepts and
+slopes.
 
 ### 2. Apply a two-stage sampling design
 
 Select 200 subjects for stage 2, oversampling from tails:
 
 ``` r
+
 stage2_data <- ods_design(
   data,
   sampling_type = "slope",     # sample based on estimated slopes
@@ -84,18 +90,19 @@ Subjects not selected have their `x` values set to `NA`.
 ### 3. Fit Bayesian model with imputation
 
 ``` r
+
 fit <- fit_stan_model(
   data = stage2_data,
-  main_model_covariates = c("x", "z", "t"),
-  imputation_model_covariates = c("z"),
+  main_model_formula = ~ z,
+  imputation_model_formula = ~ z,
   imputation_distribution = "normal",
   n_chains = 4,
   iter_warmup = 1000,
   iter_sampling = 1000
 )
 
-# View results
-fit$summary(variables = c("beta_x", "beta_z", "beta_t"))
+# View results (x, t, and x:t are separate Stan parameters; z is beta[1])
+fit$summary(variables = c("beta_x", "beta_t", "beta_x_t_interaction", "beta[1]"))
 ```
 
 The Stan model jointly:
@@ -108,12 +115,12 @@ The Stan model jointly:
 The package handles different covariate types through specialized Stan
 models:
 
-| Distribution        | Use Case              | Stan Model                                        |
-|---------------------|-----------------------|---------------------------------------------------|
-| `normal`            | Continuous covariates | `mixed_effects_imputation_normal.stan`            |
-| `bernoulli`         | Binary covariates     | `mixed_effects_imputation_bernoulli.stan`         |
-| `negative_binomial` | Unbounded counts      | `mixed_effects_imputation_negative_binomial.stan` |
-| `beta_binomial`     | Bounded counts        | `mixed_effects_imputation_beta_binomial.stan`     |
+| Distribution | Use Case | Stan Model |
+|----|----|----|
+| `normal` | Continuous covariates | `mixed_effects_imputation_normal.stan` |
+| `bernoulli` | Binary covariates | `mixed_effects_imputation_bernoulli.stan` |
+| `negative_binomial` | Unbounded counts | `mixed_effects_imputation_negative_binomial.stan` |
+| `beta_binomial` | Bounded counts | `mixed_effects_imputation_beta_binomial.stan` |
 
 ## Alternative Estimation Methods
 
@@ -122,6 +129,7 @@ models:
 For frequentist analysis of ODS designs:
 
 ``` r
+
 acml_results <- fit_acml_ods(
   ods_df = stage2_data,
   cutoff_low = 0.25,
@@ -131,17 +139,17 @@ acml_results <- fit_acml_ods(
 
 ## Key Functions
 
-| Function                                                                                  | Purpose                                        |
-|-------------------------------------------------------------------------------------------|------------------------------------------------|
-| [`generate_data()`](https://maxdrohde.github.io/bayes2stage/reference/generate_data.md)   | Simulate longitudinal data with random effects |
-| [`srs_design()`](https://maxdrohde.github.io/bayes2stage/reference/srs_design.md)         | Simple random sampling                         |
-| [`ods_design()`](https://maxdrohde.github.io/bayes2stage/reference/ods_design.md)         | Outcome-dependent sampling                     |
-| [`bds_design()`](https://maxdrohde.github.io/bayes2stage/reference/bds_design.md)         | BLUP-dependent sampling                        |
-| [`fit_stan_model()`](https://maxdrohde.github.io/bayes2stage/reference/fit_stan_model.md) | Bayesian mixed model with imputation           |
-| [`fit_acml_ods()`](https://maxdrohde.github.io/bayes2stage/reference/fit_acml_ods.md)     | ACML estimation for ODS                        |
-| [`mcmc_summary()`](https://maxdrohde.github.io/bayes2stage/reference/mcmc_summary.md)     | Summarize MCMC output                          |
-| [`mcmc_trace()`](https://maxdrohde.github.io/bayes2stage/reference/mcmc_trace.md)         | Trace plots                                    |
-| [`mcmc_forest()`](https://maxdrohde.github.io/bayes2stage/reference/mcmc_forest.md)       | Forest plots                                   |
+| Function | Purpose |
+|----|----|
+| [`generate_data()`](https://maxdrohde.github.io/bayes2stage/reference/generate_data.md) | Simulate longitudinal data with random effects |
+| [`srs_design()`](https://maxdrohde.github.io/bayes2stage/reference/srs_design.md) | Simple random sampling |
+| [`ods_design()`](https://maxdrohde.github.io/bayes2stage/reference/ods_design.md) | Outcome-dependent sampling |
+| [`bds_design()`](https://maxdrohde.github.io/bayes2stage/reference/bds_design.md) | BLUP-dependent sampling |
+| [`fit_stan_model()`](https://maxdrohde.github.io/bayes2stage/reference/fit_stan_model.md) | Bayesian mixed model with imputation |
+| [`fit_acml_ods()`](https://maxdrohde.github.io/bayes2stage/reference/fit_acml_ods.md) | ACML estimation for ODS |
+| `mcmc_summary()` | Summarize MCMC output |
+| [`mcmc_trace()`](https://maxdrohde.github.io/bayes2stage/reference/mcmc_trace.md) | Trace plots |
+| [`mcmc_forest()`](https://maxdrohde.github.io/bayes2stage/reference/mcmc_forest.md) | Forest plots |
 
 ## Citation
 

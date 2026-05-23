@@ -22,6 +22,7 @@ First, we simulate longitudinal data where each subject has repeated
 measurements over time:
 
 ``` r
+
 library(bayes2stage)
 
 set.seed(123)
@@ -55,6 +56,7 @@ sampling (ODS) selects subjects based on their estimated trajectories,
 oversampling from the tails:
 
 ``` r
+
 stage2_data <- ods_design(
   data,
   sampling_type = "slope",     # select based on OLS slopes
@@ -78,10 +80,11 @@ The Stan-based model jointly estimates the outcome model and imputes
 missing `x` values:
 
 ``` r
+
 fit <- fit_stan_model(
   data = stage2_data,
-  main_model_covariates = c("x", "z", "t"),
-  imputation_model_covariates = c("z"),
+  main_model_formula = ~ z,
+  imputation_model_formula = ~ z,
   imputation_distribution = "normal",
   n_chains = 4,
   iter_warmup = 1000,
@@ -93,8 +96,9 @@ fit <- fit_stan_model(
 ### Step 4: Examine Results
 
 ``` r
-# Parameter summaries
-fit$summary(variables = c("alpha", "beta_x", "beta_z", "beta_t"))
+
+# Parameter summaries (x, t, x:t are separate Stan parameters; z is beta[1])
+fit$summary(variables = c("alpha_main", "beta_x", "beta_t", "beta_x_t_interaction", "beta[1]"))
 
 # Trace plots for diagnostics
 mcmc_trace(fit)
@@ -104,11 +108,11 @@ mcmc_trace(fit)
 
 The package provides three sampling strategies:
 
-| Function                                                                          | Method                 | Best When                                       |
-|-----------------------------------------------------------------------------------|------------------------|-------------------------------------------------|
-| [`srs_design()`](https://maxdrohde.github.io/bayes2stage/reference/srs_design.md) | Simple random sampling | No prior information about trajectories         |
-| [`ods_design()`](https://maxdrohde.github.io/bayes2stage/reference/ods_design.md) | OLS-based selection    | Quick, approximate trajectory estimates suffice |
-| [`bds_design()`](https://maxdrohde.github.io/bayes2stage/reference/bds_design.md) | BLUP-based selection   | More accurate trajectory estimates needed       |
+| Function | Method | Best When |
+|----|----|----|
+| [`srs_design()`](https://maxdrohde.github.io/bayes2stage/reference/srs_design.md) | Simple random sampling | No prior information about trajectories |
+| [`ods_design()`](https://maxdrohde.github.io/bayes2stage/reference/ods_design.md) | OLS-based selection | Quick, approximate trajectory estimates suffice |
+| [`bds_design()`](https://maxdrohde.github.io/bayes2stage/reference/bds_design.md) | BLUP-based selection | More accurate trajectory estimates needed |
 
 ## Supported Covariate Distributions
 
@@ -127,6 +131,7 @@ For frequentist analysis, use ascertainment-corrected maximum
 likelihood:
 
 ``` r
+
 acml_fit <- fit_acml_ods(
   ods_df = stage2_data,
   cutoff_low = 0.25,

@@ -7,8 +7,8 @@ Format the simulated data for Stan
 ``` r
 format_data_mcmc(
   data,
-  main_model_covariates = NULL,
-  imputation_model_covariates = NULL,
+  main_model_formula = NULL,
+  imputation_model_formula = NULL,
   imputation_distribution = c("normal", "bernoulli", "beta_binomial",
     "negative_binomial")
 )
@@ -20,14 +20,15 @@ format_data_mcmc(
 
   Dataset to use
 
-- main_model_covariates:
+- main_model_formula:
 
-  Character vector of column names for covariates in the main model
+  One-sided formula or string for covariates in the main model (e.g.,
+  `~ age + splines::ns(bmi, 3)`). Intercept is automatically removed.
 
-- imputation_model_covariates:
+- imputation_model_formula:
 
-  Character vector of column names for covariates in the imputation
-  model
+  One-sided formula or string for covariates in the imputation model
+  (e.g., `~ age + factor(site)`). Intercept is automatically removed.
 
 - imputation_distribution:
 

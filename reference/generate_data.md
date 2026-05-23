@@ -7,8 +7,8 @@ and slopes for testing two-stage design methods.
 
 ``` r
 generate_data(
-  N = 2000,
-  M = 5,
+  N = 2000L,
+  M = 5L,
   alpha_main = 1,
   beta_x = 1,
   beta_z = 1,
@@ -16,16 +16,20 @@ generate_data(
   beta_t_x_interaction = 0.3,
   beta_t_z_interaction = 0,
   error_sd = 4,
-  x_dist = c("normal", "poisson", "binomial", "negative_binomial", "beta_binomial"),
+  direction = c("x_given_z", "z_given_x"),
+  x_dist = c("normal", "bernoulli", "binomial", "poisson", "negative_binomial",
+    "beta_binomial"),
   x_size = NULL,
   x_disp_param = NULL,
+  x_prevalence = 0.25,
   rand_intercept_sd = 3,
   rand_slope_sd = 1,
   rand_eff_corr = 0,
   gamma0 = 1,
   gamma1 = 1,
   gamma2 = 0,
-  gamma_sd = 2
+  gamma_sd = 2,
+  time_scale = c("normalized", "integer")
 )
 ```
 
@@ -37,7 +41,9 @@ generate_data(
 
 - M:
 
-  Number of time points per subject (default: 5)
+  Number of time points per subject. Can be a single integer for fixed
+  observations per subject, or a vector to sample from for variable
+  observations (default: 5)
 
 - alpha_main:
 
@@ -67,10 +73,17 @@ generate_data(
 
   Standard deviation of residual error (default: 4)
 
+- direction:
+
+  Direction of covariate dependency. "x_given_z" generates z ~ N(0,1)
+  first, then x \| z. "z_given_x" generates x ~ Bernoulli first, then z
+  \| x (default: "x_given_z")
+
 - x_dist:
 
-  Distribution for x: "normal", "poisson", "binomial",
-  "negative_binomial", or "beta_binomial" (default: "normal")
+  Distribution for x: "normal", "bernoulli", "poisson",
+  "negative_binomial", or "beta_binomial". When direction = "z_given_x",
+  only "bernoulli" is supported (default: "normal")
 
 - x_size:
 
@@ -79,6 +92,10 @@ generate_data(
 - x_disp_param:
 
   Dispersion parameter for negative_binomial/beta_binomial
+
+- x_prevalence:
+
+  Prevalence of binary x when direction = "z_given_x" (default: 0.25)
 
 - rand_intercept_sd:
 
@@ -94,20 +111,26 @@ generate_data(
 
 - gamma0:
 
-  Intercept for the imputation model (default: 1)
+  Intercept for the covariate model (default: 1)
 
 - gamma1:
 
-  Linear coefficient for z in the imputation model (default: 1)
+  Linear coefficient in the covariate model (default: 1)
 
 - gamma2:
 
-  Quadratic coefficient for z in the imputation model (default: 0)
+  Quadratic coefficient in the covariate model (default: 0)
 
 - gamma_sd:
 
-  Standard deviation for the imputation model (normal distribution only)
+  Standard deviation for normal distribution in covariate model
   (default: 2)
+
+- time_scale:
+
+  How to scale the time variable. "normalized" scales time to the 0-1
+  interval (default). "integer" uses integer visit numbers 0, 1, 2, ...,
+  M-1 (matches Schildcrout 2019 simulation setup).
 
 ## Value
 
