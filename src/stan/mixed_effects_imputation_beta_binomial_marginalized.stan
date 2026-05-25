@@ -1,120 +1,54 @@
 // Mixed Effects Model with Marginalized Random Effects AND Marginalized Beta-Binomial X
-//
-// This model integrates out BOTH:
-//   1. Random effects (analytically via MVN)
-//   2. Missing count x values (via sum over Beta-Binomial support)
-//
-// Result: ZERO latent variables for subjects with missing x
-//
-// For subjects with missing x:
-//   p(y_g | theta) = sum_{k=0}^{m} p(y_g | x=k, theta) * BetaBinomial(k | m, alpha, beta)
-//
-// where p(y_g | x, theta) is MVN after marginalizing out random effects.
-//
-// Imputation Model Parameterization (mean-precision):
-//   mu_g = inv_logit(gamma_0 + w_g' * gamma)   (mean proportion)
-//   phi = precision parameter
-//   alpha_g = mu_g * phi
-//   beta_g = (1 - mu_g) * phi
-//   x_g ~ BetaBinomial(m, alpha_g, beta_g)
-//
-// Trade-off:
-//   - More expensive likelihood (m+1 MVN densities per subject with missing x)
-//   - But eliminates ALL latent variables (no funnel, no discrete sampling issues)
-//   - Handles overdispersion in count data (unlike Binomial)
-//
-// Best for: Large G with bounded count x causing mixing problems
-//
-// Note: For m=1 (binary), this reduces to a Beta-Bernoulli model.
-// For large m, consider whether the computational cost (m+1 terms) is acceptable.
+// (Double-Woodbury and Low-Rank Optimized)
 
 functions {
     /**
-     * Compute marginal covariance matrix for a subject
+     * MVN log density for covariance: Sigma = sigma_sq * I + Q Q'
+     * using only sufficient statistics.
      *
-     * V_g = Z_re * Sigma_re * Z_re' + sigma^2 * I
+     * Uses matrix determinant lemma and Woodbury identity:
+     *   log|Sigma| = n*log(sigma_sq) + log|I + Q'Q/sigma_sq|
+     *   r'Sigma^{-1}r = r'r/sigma_sq - (Q'r)'M^{-1}(Q'r)/sigma_sq^2
+     *   where M = I + Q'Q/sigma_sq
      *
-     * @param t_g Vector of time points (length n_g)
-     * @param L_Sigma Lower Cholesky factor of RE covariance (2x2)
-     * @param sigma Residual standard deviation
-     * @return Cholesky factor of marginal covariance (n_g x n_g)
+     * Complexity: O(k^3) for Cholesky of k×k, with k=2.
      */
-    matrix compute_marginal_cov_chol(vector t_g, matrix L_Sigma, real sigma) {
-        int n = rows(t_g);
-        matrix[n, 2] Z_re;
-        matrix[n, n] V;
+    real mvn_diag_plus_lowrank_lpdf(real r2,
+                                    vector Qtr,
+                                    matrix QQ,
+                                    real sigma_sq,
+                                    int n) {
+        int k = rows(Qtr);
 
-        // Build RE design matrix: [1, t]
-        Z_re[, 1] = rep_vector(1.0, n);
-        Z_re[, 2] = t_g;
-
-        // V = Z * L * L' * Z' + sigma^2 * I
-        V = tcrossprod(Z_re * L_Sigma);
-
-        // Add residual variance to diagonal
-        for (i in 1:n) {
-            V[i, i] += square(sigma);
+        matrix[k, k] M = QQ / sigma_sq;
+        for (i in 1:k) {
+            M[i, i] += 1.0;
         }
 
-        return cholesky_decompose(V);
-    }
+        matrix[k, k] L_M = cholesky_decompose(M);
+        real log_det = n * log(sigma_sq) + 2.0 * sum(log(diagonal(L_M)));
 
-    /**
-     * Compute mean vector for subject g given x value
-     *
-     * @param x Value of count covariate (integer, but passed as real for flexibility)
-     * @param t_g Time vector for subject
-     * @param X_g Covariate matrix for subject (n_g x P)
-     * @param alpha_main Intercept
-     * @param beta_x Effect of x
-     * @param beta_t Effect of time
-     * @param beta_x_t x-time interaction
-     * @param beta Other covariate effects
-     * @return Mean vector (n_g)
-     */
-    vector compute_mean(int x, vector t_g, matrix X_g,
-                        real alpha_main, real beta_x, real beta_t,
-                        real beta_x_t, vector beta) {
-        int n = rows(t_g);
-        vector[n] mu = rep_vector(alpha_main + beta_x * x, n)
-                       + beta_t * t_g
-                       + beta_x_t * x * t_g
-                       + X_g * beta;
-        return mu;
+        vector[k] sol = mdivide_left_tri_low(L_M, Qtr);
+        real quad = (r2 - dot_self(sol) / sigma_sq) / sigma_sq;
+
+        return -0.5 * (n * log(2.0 * pi()) + log_det + quad);
     }
 
     /**
      * Compute log PMF of Beta-Binomial using recurrence relation
-     * This is more efficient than calling beta_binomial_lpmf repeatedly
      *
      * BetaBinomial(k | n, alpha, beta) = C(n,k) * B(k+alpha, n-k+beta) / B(alpha, beta)
-     *
      * Recurrence: P(k)/P(k-1) = (n-k+1)(k-1+alpha) / [k(n-k+beta)]
-     *
-     * In log form:
-     *   log P(k) = log P(k-1) + log(n-k+1) + log(k-1+alpha) - log(k) - log(n-k+beta)
-     *
-     * Base case:
-     *   log P(0) = lgamma(n+beta) + lgamma(alpha+beta) - lgamma(n+alpha+beta) - lgamma(beta)
-     *
-     * @param n Number of trials
-     * @param alpha Shape parameter alpha > 0
-     * @param beta_param Shape parameter beta > 0
-     * @return Vector of log probabilities for k = 0, 1, ..., n
      */
     vector beta_binomial_log_pmf_vec(int n, real alpha, real beta_param) {
         vector[n + 1] log_pmf;
 
         // Base case: k = 0
-        // P(0) = B(alpha, n+beta) / B(alpha, beta)
-        //      = Gamma(alpha)Gamma(n+beta)Gamma(alpha+beta) / [Gamma(alpha+n+beta)Gamma(alpha)Gamma(beta)]
-        //      = Gamma(n+beta)Gamma(alpha+beta) / [Gamma(n+alpha+beta)Gamma(beta)]
         log_pmf[1] = lgamma(n + beta_param) + lgamma(alpha + beta_param)
                      - lgamma(n + alpha + beta_param) - lgamma(beta_param);
 
         // Recurrence for k = 1, 2, ..., n
         for (k in 1:n) {
-            // P(k)/P(k-1) = (n-k+1)(k-1+alpha) / [k(n-k+beta)]
             log_pmf[k + 1] = log_pmf[k]
                              + log(n - k + 1.0) + log(k - 1.0 + alpha)
                              - log(k * 1.0) - log(n - k + beta_param);
@@ -145,8 +79,7 @@ data {
     array[G_mis] int<lower=1, upper=G> index_mis;  // Subjects with missing x
     array[G_obs] int<lower=0> x_obs;               // Observed x values (counts)
 
-    // Number of trials for the Beta-Binomial (per-subject array for interface consistency)
-    // NOTE: Marginalization requires all subjects have the same n_trials
+    // Number of trials for the Beta-Binomial
     array[G] int<lower=1> n_trials;
 
     array[N] int<lower=1, upper=G> id;      // Subject index per observation
@@ -157,7 +90,6 @@ data {
 }
 
 transformed data {
-    // For marginalization, we need a common n_trials value
     // Validate that all subjects have the same n_trials
     int m_trials = n_trials[1];
     for (g in 2:G) {
@@ -171,6 +103,21 @@ transformed data {
     for (k in 1:G_obs) {
         if (x_obs[k] > m_trials) {
             reject("x_obs[", k, "] = ", x_obs[k], " exceeds n_trials = ", m_trials);
+        }
+    }
+
+    // PRECOMPUTATION OPTIMIZATION: Compute constant time sums once
+    vector[G] sumt;
+    vector[G] sumt2;
+    for (g in 1:G) {
+        sumt[g] = 0.0;
+        sumt2[g] = 0.0;
+        int start_idx = pos[g];
+        int n_g = len[g];
+        for (i in 1:n_g) {
+            real ti = t[start_idx + i - 1];
+            sumt[g] += ti;
+            sumt2[g] += ti * ti;
         }
     }
 }
@@ -192,32 +139,30 @@ parameters {
     real alpha_imputation;                   // Intercept for logit(mu)
     vector[S] gamma;                         // Coefficients for logit(mu)
     real<lower=0> phi_imputation;            // Precision parameter (alpha + beta)
-
-    // NOTE: No x_mis parameters! Count x is marginalized out.
-    // NOTE: No z_re parameters! Random effects are marginalized out.
 }
 
 transformed parameters {
     // Cholesky factor of RE covariance: L_Sigma = diag(sigma_re) * L_corr
     matrix[2, 2] L_Sigma = diag_pre_multiply(sigma_re, L_re);
+    real sigma_sq = square(sigma_main);
 
     // Imputation model: logit(mu) = linear predictor
-    // mu = E[x/m] = alpha_beta / (alpha_beta + beta_beta)
     vector[G] eta_imputation = alpha_imputation + Z * gamma;
     vector[G] mu_imputation = inv_logit(eta_imputation);
 
     // Beta distribution parameters for each subject
-    // Using mean-precision parameterization: alpha = mu * phi, beta = (1-mu) * phi
     vector<lower=0>[G] alpha_beta = mu_imputation * phi_imputation;
     vector<lower=0>[G] beta_beta = (1 - mu_imputation) * phi_imputation;
+    vector[N] xb = X * beta;
+
+    // L_Sigma = [[a, 0], [b, c]]
+    real re_a = L_Sigma[1, 1];
+    real re_b = L_Sigma[2, 1];
+    real re_c = L_Sigma[2, 2];
 }
 
 model {
-    // =========================================================================
     // Priors
-    // =========================================================================
-
-    // Random effects variance components
     sigma_re ~ exponential(0.1);
     L_re ~ lkj_corr_cholesky(2);
 
@@ -232,16 +177,13 @@ model {
     // Imputation model priors
     alpha_imputation ~ normal(0, 2.5);
     gamma ~ normal(0, 2.5);
-    phi_imputation ~ gamma(2, 0.1);  // Weakly informative prior for precision
+    phi_imputation ~ gamma(2, 0.1);
 
     // =========================================================================
-    // Likelihood for Subjects with OBSERVED x
+    // Likelihood for Subjects with OBSERVED x (O(n) Woodbury)
     // =========================================================================
-    //
-    // For these subjects:
-    //   p(y_g, x_g | theta) = p(y_g | x_g, theta) * p(x_g | theta)
-    //
-    // where p(y_g | x_g, theta) is MVN after marginalizing RE
+    // Vectorize imputation likelihood for observed x
+    x_obs ~ beta_binomial(m_trials, alpha_beta[index_obs], beta_beta[index_obs]);
 
     for (k in 1:G_obs) {
         int g = index_obs[k];
@@ -249,181 +191,231 @@ model {
         int n_g = len[g];
         int start_idx = pos[g];
 
-        // Extract subject's data
-        vector[n_g] y_g = segment(y, start_idx, n_g);
-        vector[n_g] t_g = segment(t, start_idx, n_g);
-        matrix[n_g, P] X_g = X[start_idx:(start_idx + n_g - 1), ];
+        real sum_r = 0;
+        real sum_tr = 0;
+        real sum_r2 = 0;
 
-        // Compute marginal covariance (Cholesky factor)
-        matrix[n_g, n_g] L_V = compute_marginal_cov_chol(t_g, L_Sigma, sigma_main);
+        for (i in 1:n_g) {
+            int obs = start_idx + i - 1;
+            real ti = t[obs];
+            real mu_base_i = alpha_main + beta_t * ti + xb[obs];
+            real ri = y[obs] - mu_base_i;
 
-        // Compute mean given observed x
-        vector[n_g] mu_g = compute_mean(x_g, t_g, X_g,
-                                        alpha_main, beta_x, beta_t,
-                                        beta_x_t_interaction, beta);
+            sum_r += ri;
+            sum_tr += ti * ri;
+            sum_r2 += ri * ri;
+        }
 
-        // Outcome likelihood (marginalized over RE)
-        y_g ~ multi_normal_cholesky(mu_g, L_V);
+        real dd = n_g * square(beta_x)
+                  + 2.0 * beta_x * beta_x_t_interaction * sumt[g]
+                  + square(beta_x_t_interaction) * sumt2[g];
+        real d_rbase = beta_x * sum_r + beta_x_t_interaction * sum_tr;
+        real r2 = sum_r2 - 2.0 * x_g * d_rbase + square(x_g) * dd;
 
-        // Imputation model likelihood (Beta-Binomial)
-        x_g ~ beta_binomial(m_trials, alpha_beta[g], beta_beta[g]);
+        matrix[2, 2] QQ_re;
+        QQ_re[1, 1] = n_g * square(re_a) + 2.0 * re_a * re_b * sumt[g] + square(re_b) * sumt2[g];
+        QQ_re[1, 2] = re_c * re_a * sumt[g] + re_c * re_b * sumt2[g];
+        QQ_re[2, 1] = QQ_re[1, 2];
+        QQ_re[2, 2] = square(re_c) * sumt2[g];
+
+        vector[2] Qd;
+        Qd[1] = n_g * re_a * beta_x
+                + (re_a * beta_x_t_interaction + re_b * beta_x) * sumt[g]
+                + re_b * beta_x_t_interaction * sumt2[g];
+        Qd[2] = re_c * beta_x * sumt[g] + re_c * beta_x_t_interaction * sumt2[g];
+
+        vector[2] Qtr_base;
+        Qtr_base[1] = re_a * sum_r + re_b * sum_tr;
+        Qtr_base[2] = re_c * sum_tr;
+
+        vector[2] Qtr = Qtr_base - x_g * Qd;
+
+        target += mvn_diag_plus_lowrank_lpdf(r2 | Qtr, QQ_re, sigma_sq, n_g);
     }
 
     // =========================================================================
-    // Likelihood for Subjects with MISSING x (Fully Marginalized)
+    // Likelihood for Subjects with MISSING x (Fully Marginalized O(1) Woodbury Loop)
     // =========================================================================
-    //
-    // For these subjects:
-    //   p(y_g | theta) = sum_{k=0}^{m} p(y_g | x=k, theta) * p(x=k | theta)
-    //
-    // This is a mixture of m+1 MVN distributions.
-    // We use log_sum_exp for numerical stability.
-    //
-    // OPTIMIZATION: Factor out linear algebra from the inner loop.
-    // The MVN log-density is: const - 0.5 * ||L^{-1}(y - mu)||^2
-    // Since mu_j = base_mu + j*d, we have y - mu_j = r - j*d
-    // where r = y - base_mu and d = beta_x + beta_x_t * t
-    //
-    // Pre-solving r_w = L^{-1}*r and d_w = L^{-1}*d (O(n^2) once),
-    // the quadratic form becomes: K1 - 2*j*K2 + j^2*K3 (O(1) per j)
-    //
-    // Complexity: O(n^2 + m) instead of O(m * n^2)
-
     for (k in 1:G_mis) {
         int g = index_mis[k];
         int n_g = len[g];
         int start_idx = pos[g];
 
-        // Extract subject's data
-        vector[n_g] y_g = segment(y, start_idx, n_g);
-        vector[n_g] t_g = segment(t, start_idx, n_g);
-        matrix[n_g, P] X_g = X[start_idx:(start_idx + n_g - 1), ];
+        real sum_r = 0;
+        real sum_tr = 0;
+        real sum_r2 = 0;
 
-        // Compute marginal covariance (Cholesky factor)
-        matrix[n_g, n_g] L_V = compute_marginal_cov_chol(t_g, L_Sigma, sigma_main);
+        for (i in 1:n_g) {
+            int obs = start_idx + i - 1;
+            real ti = t[obs];
+            real mu_base_i = alpha_main + beta_t * ti + xb[obs];
+            real ri = y[obs] - mu_base_i;
 
-        // Compute base mean (x = 0) and slope vector
-        vector[n_g] base_mu = rep_vector(alpha_main, n_g)
-                              + beta_t * t_g
-                              + X_g * beta;
-        vector[n_g] d = rep_vector(beta_x, n_g) + beta_x_t_interaction * t_g;
+            sum_r += ri;
+            sum_tr += ti * ri;
+            sum_r2 += ri * ri;
+        }
 
-        // Compute residual from base mean
-        vector[n_g] r = y_g - base_mu;
+        real dd = n_g * square(beta_x)
+                  + 2.0 * beta_x * beta_x_t_interaction * sumt[g]
+                  + square(beta_x_t_interaction) * sumt2[g];
+        real d_rbase = beta_x * sum_r + beta_x_t_interaction * sum_tr;
 
-        // Solve linear systems: r_w = L^{-1} * r, d_w = L^{-1} * d
-        vector[n_g] r_w = mdivide_left_tri_low(L_V, r);
-        vector[n_g] d_w = mdivide_left_tri_low(L_V, d);
+        matrix[2, 2] QQ_re;
+        QQ_re[1, 1] = n_g * square(re_a) + 2.0 * re_a * re_b * sumt[g] + square(re_b) * sumt2[g];
+        QQ_re[1, 2] = re_c * re_a * sumt[g] + re_c * re_b * sumt2[g];
+        QQ_re[2, 1] = QQ_re[1, 2];
+        QQ_re[2, 2] = square(re_c) * sumt2[g];
 
-        // Pre-compute sufficient statistics for quadratic form
-        real K1 = dot_self(r_w);           // ||r_w||^2
-        real K2 = dot_product(r_w, d_w);   // r_w' * d_w
-        real K3 = dot_self(d_w);           // ||d_w||^2
+        vector[2] Qd;
+        Qd[1] = n_g * re_a * beta_x
+                + (re_a * beta_x_t_interaction + re_b * beta_x) * sumt[g]
+                + re_b * beta_x_t_interaction * sumt2[g];
+        Qd[2] = re_c * beta_x * sumt[g] + re_c * beta_x_t_interaction * sumt2[g];
 
-        // Log determinant of L_V (for MVN normalization constant)
-        real log_det_L = sum(log(diagonal(L_V)));
-
-        // MVN normalization constant: -n/2 * log(2*pi) - log|L|
-        real mvn_const = -0.5 * n_g * log(2 * pi()) - log_det_L;
+        vector[2] Qtr_base;
+        Qtr_base[1] = re_a * sum_r + re_b * sum_tr;
+        Qtr_base[2] = re_c * sum_tr;
 
         // Compute all Beta-Binomial log PMFs using efficient recurrence
         vector[m_trials + 1] log_pmf_bb = beta_binomial_log_pmf_vec(
             m_trials, alpha_beta[g], beta_beta[g]);
 
-        // Compute log probability for each possible x value
+        // Precompute Woodbury linear algebra outside the inner loop
+        matrix[2, 2] M = QQ_re / sigma_sq;
+        M[1, 1] += 1.0;
+        M[2, 2] += 1.0;
+        matrix[2, 2] L_M = cholesky_decompose(M);
+
+        real log_det = n_g * log(sigma_sq) + 2.0 * sum(log(diagonal(L_M)));
+        real mvn_const = -0.5 * (n_g * log(2.0 * pi()) + log_det);
+
+        vector[2] a_w = mdivide_left_tri_low(L_M, Qtr_base);
+        vector[2] b_w = mdivide_left_tri_low(L_M, Qd);
+
+        // Collapse Woodbury quadratic forms into a single j-polynomial
+        // so the inner loop matches main's per-iter autodiff cost (~5 ops vs ~12).
+        real inv_s = 1.0 / sigma_sq;
+        real inv_s2 = inv_s * inv_s;
+        real K1 = sum_r2 * inv_s - dot_self(a_w) * inv_s2;
+        real K2 = d_rbase * inv_s - dot_product(a_w, b_w) * inv_s2;
+        real K3 = dd * inv_s - dot_self(b_w) * inv_s2;
+
         vector[m_trials + 1] log_probs;
-
         for (j in 0:m_trials) {
-            // Quadratic form: ||L^{-1}(y - mu_j)||^2 = K1 - 2*j*K2 + j^2*K3
             real Q = K1 - 2.0 * j * K2 + square(j) * K3;
-
-            // Log density of outcome given x = j
             real lp_y_xj = mvn_const - 0.5 * Q;
-
-            // Log probability of x = j from Beta-Binomial (pre-computed)
             log_probs[j + 1] = lp_y_xj + log_pmf_bb[j + 1];
         }
 
-        // Marginal likelihood via log-sum-exp
         target += log_sum_exp(log_probs);
     }
 }
 
 generated quantities {
-    // Correlation matrix for random effects
     corr_matrix[2] corr_rand_effects = multiply_lower_tri_self_transpose(L_re);
-
-    // Covariance matrix for random effects
     cov_matrix[2] cov_rand_effects = quad_form_diag(corr_rand_effects, sigma_re);
 
-    // Log likelihood for LOO-CV (per subject)
     vector[G] log_lik;
 
-    // Compute log likelihoods for observed subjects
     for (k in 1:G_obs) {
         int g = index_obs[k];
         int x_g = x_obs[k];
         int n_g = len[g];
         int start_idx = pos[g];
 
-        vector[n_g] y_g = segment(y, start_idx, n_g);
-        vector[n_g] t_g = segment(t, start_idx, n_g);
-        matrix[n_g, P] X_g = X[start_idx:(start_idx + n_g - 1), ];
+        real sum_r = 0;
+        real sum_tr = 0;
+        real sum_r2 = 0;
 
-        matrix[n_g, n_g] L_V = compute_marginal_cov_chol(t_g, L_Sigma, sigma_main);
-        vector[n_g] mu_g = compute_mean(x_g, t_g, X_g,
-                                        alpha_main, beta_x, beta_t,
-                                        beta_x_t_interaction, beta);
+        for (i in 1:n_g) {
+            int obs = start_idx + i - 1;
+            real ti = t[obs];
+            real ri = y[obs] - (alpha_main + beta_t * ti + xb[obs]);
+            sum_r += ri;
+            sum_tr += ti * ri;
+            sum_r2 += ri * ri;
+        }
 
-        real lp_y = multi_normal_cholesky_lpdf(y_g | mu_g, L_V);
-        real lp_x = beta_binomial_lpmf(x_g | m_trials, alpha_beta[g], beta_beta[g]);
+        real dd = n_g * square(beta_x)
+                  + 2.0 * beta_x * beta_x_t_interaction * sumt[g]
+                  + square(beta_x_t_interaction) * sumt2[g];
+        real d_rbase = beta_x * sum_r + beta_x_t_interaction * sum_tr;
+        real r2 = sum_r2 - 2.0 * x_g * d_rbase + square(x_g) * dd;
 
-        log_lik[g] = lp_y + lp_x;
+        matrix[2, 2] QQ_re;
+        QQ_re[1, 1] = n_g * square(re_a) + 2.0 * re_a * re_b * sumt[g] + square(re_b) * sumt2[g];
+        QQ_re[1, 2] = re_c * re_a * sumt[g] + re_c * re_b * sumt2[g];
+        QQ_re[2, 1] = QQ_re[1, 2];
+        QQ_re[2, 2] = square(re_c) * sumt2[g];
+
+        vector[2] Qd;
+        Qd[1] = n_g * re_a * beta_x
+                + (re_a * beta_x_t_interaction + re_b * beta_x) * sumt[g]
+                + re_b * beta_x_t_interaction * sumt2[g];
+        Qd[2] = re_c * beta_x * sumt[g] + re_c * beta_x_t_interaction * sumt2[g];
+
+        vector[2] Qtr_base;
+        Qtr_base[1] = re_a * sum_r + re_b * sum_tr;
+        Qtr_base[2] = re_c * sum_tr;
+
+        vector[2] Qtr = Qtr_base - x_g * Qd;
+
+        log_lik[g] = mvn_diag_plus_lowrank_lpdf(r2 | Qtr, QQ_re, sigma_sq, n_g)
+                     + beta_binomial_lpmf(x_g | m_trials, alpha_beta[g], beta_beta[g]);
     }
 
-    // Compute log likelihoods for missing subjects
     for (k in 1:G_mis) {
         int g = index_mis[k];
         int n_g = len[g];
         int start_idx = pos[g];
 
-        vector[n_g] y_g = segment(y, start_idx, n_g);
-        vector[n_g] t_g = segment(t, start_idx, n_g);
-        matrix[n_g, P] X_g = X[start_idx:(start_idx + n_g - 1), ];
+        real sum_r = 0;
+        real sum_tr = 0;
+        real sum_r2 = 0;
 
-        matrix[n_g, n_g] L_V = compute_marginal_cov_chol(t_g, L_Sigma, sigma_main);
+        for (i in 1:n_g) {
+            int obs = start_idx + i - 1;
+            real ti = t[obs];
+            real ri = y[obs] - (alpha_main + beta_t * ti + xb[obs]);
+            sum_r += ri;
+            sum_tr += ti * ri;
+            sum_r2 += ri * ri;
+        }
 
-        // Compute base mean and slope vector
-        vector[n_g] base_mu = rep_vector(alpha_main, n_g)
-                              + beta_t * t_g
-                              + X_g * beta;
-        vector[n_g] d = rep_vector(beta_x, n_g) + beta_x_t_interaction * t_g;
-        vector[n_g] r = y_g - base_mu;
+        real dd = n_g * square(beta_x)
+                  + 2.0 * beta_x * beta_x_t_interaction * sumt[g]
+                  + square(beta_x_t_interaction) * sumt2[g];
+        real d_rbase = beta_x * sum_r + beta_x_t_interaction * sum_tr;
 
-        // Solve linear systems once
-        vector[n_g] r_w = mdivide_left_tri_low(L_V, r);
-        vector[n_g] d_w = mdivide_left_tri_low(L_V, d);
+        matrix[2, 2] QQ_re;
+        QQ_re[1, 1] = n_g * square(re_a) + 2.0 * re_a * re_b * sumt[g] + square(re_b) * sumt2[g];
+        QQ_re[1, 2] = re_c * re_a * sumt[g] + re_c * re_b * sumt2[g];
+        QQ_re[2, 1] = QQ_re[1, 2];
+        QQ_re[2, 2] = square(re_c) * sumt2[g];
 
-        // Pre-compute sufficient statistics
-        real K1 = dot_self(r_w);
-        real K2 = dot_product(r_w, d_w);
-        real K3 = dot_self(d_w);
-        real log_det_L = sum(log(diagonal(L_V)));
-        real mvn_const = -0.5 * n_g * log(2 * pi()) - log_det_L;
+        vector[2] Qd;
+        Qd[1] = n_g * re_a * beta_x
+                + (re_a * beta_x_t_interaction + re_b * beta_x) * sumt[g]
+                + re_b * beta_x_t_interaction * sumt2[g];
+        Qd[2] = re_c * beta_x * sumt[g] + re_c * beta_x_t_interaction * sumt2[g];
 
-        // Compute all Beta-Binomial log PMFs using efficient recurrence
+        vector[2] Qtr_base;
+        Qtr_base[1] = re_a * sum_r + re_b * sum_tr;
+        Qtr_base[2] = re_c * sum_tr;
+
         vector[m_trials + 1] log_pmf_bb = beta_binomial_log_pmf_vec(
             m_trials, alpha_beta[g], beta_beta[g]);
 
         vector[m_trials + 1] log_probs;
-
         for (j in 0:m_trials) {
-            real Q = K1 - 2.0 * j * K2 + square(j) * K3;
-            real lp_y_xj = mvn_const - 0.5 * Q;
+            real r2_j = sum_r2 - 2.0 * j * d_rbase + square(j) * dd;
+            vector[2] Qtr_j = Qtr_base - j * Qd;
+
+            real lp_y_xj = mvn_diag_plus_lowrank_lpdf(r2_j | Qtr_j, QQ_re, sigma_sq, n_g);
             log_probs[j + 1] = lp_y_xj + log_pmf_bb[j + 1];
         }
 
-        // Marginal log likelihood
         log_lik[g] = log_sum_exp(log_probs);
     }
 }

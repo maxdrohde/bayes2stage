@@ -77,6 +77,23 @@ data {
     int<lower=2> K;  // Number of mixture components
 }
 
+transformed data {
+    // PRECOMPUTATION OPTIMIZATION: Compute constant time sums once
+    vector[G] sumt;
+    vector[G] sumt2;
+    for (g in 1:G) {
+        sumt[g] = 0.0;
+        sumt2[g] = 0.0;
+        int start_idx = pos[g];
+        int n_g = len[g];
+        for (i in 1:n_g) {
+            real ti = t[start_idx + i - 1];
+            sumt[g] += ti;
+            sumt2[g] += ti * ti;
+        }
+    }
+}
+
 parameters {
     vector<lower=0>[2] sigma_re;
     cholesky_factor_corr[2] L_re;
@@ -135,8 +152,6 @@ model {
         int start_idx = pos[g];
         real x_g = x_obs[k_subj];
 
-        real sumt = 0;
-        real sumt2 = 0;
         real sum_r = 0;
         real sum_tr = 0;
         real sum_r2 = 0;
@@ -147,30 +162,28 @@ model {
             real mu_base_i = alpha_main + beta_t * ti + xb[obs];
             real ri = y[obs] - mu_base_i;
 
-            sumt += ti;
-            sumt2 += ti * ti;
             sum_r += ri;
             sum_tr += ti * ri;
             sum_r2 += ri * ri;
         }
 
         real dd = n_g * square(beta_x)
-                  + 2.0 * beta_x * beta_x_t_interaction * sumt
-                  + square(beta_x_t_interaction) * sumt2;
+                  + 2.0 * beta_x * beta_x_t_interaction * sumt[g]
+                  + square(beta_x_t_interaction) * sumt2[g];
         real d_rbase = beta_x * sum_r + beta_x_t_interaction * sum_tr;
         real r2 = sum_r2 - 2.0 * x_g * d_rbase + square(x_g) * dd;
 
         matrix[2, 2] QQ_re;
-        QQ_re[1, 1] = n_g * square(re_a) + 2.0 * re_a * re_b * sumt + square(re_b) * sumt2;
-        QQ_re[1, 2] = re_c * re_a * sumt + re_c * re_b * sumt2;
+        QQ_re[1, 1] = n_g * square(re_a) + 2.0 * re_a * re_b * sumt[g] + square(re_b) * sumt2[g];
+        QQ_re[1, 2] = re_c * re_a * sumt[g] + re_c * re_b * sumt2[g];
         QQ_re[2, 1] = QQ_re[1, 2];
-        QQ_re[2, 2] = square(re_c) * sumt2;
+        QQ_re[2, 2] = square(re_c) * sumt2[g];
 
         vector[2] Qd;
         Qd[1] = n_g * re_a * beta_x
-                + (re_a * beta_x_t_interaction + re_b * beta_x) * sumt
-                + re_b * beta_x_t_interaction * sumt2;
-        Qd[2] = re_c * beta_x * sumt + re_c * beta_x_t_interaction * sumt2;
+                + (re_a * beta_x_t_interaction + re_b * beta_x) * sumt[g]
+                + re_b * beta_x_t_interaction * sumt2[g];
+        Qd[2] = re_c * beta_x * sumt[g] + re_c * beta_x_t_interaction * sumt2[g];
 
         vector[2] Qtr_base;
         Qtr_base[1] = re_a * sum_r + re_b * sum_tr;
@@ -195,8 +208,6 @@ model {
         int n_g = len[g];
         int start_idx = pos[g];
 
-        real sumt = 0;
-        real sumt2 = 0;
         real sum_r = 0;
         real sum_tr = 0;
         real sum_r2 = 0;
@@ -207,29 +218,27 @@ model {
             real mu_base_i = alpha_main + beta_t * ti + xb[obs];
             real ri = y[obs] - mu_base_i;
 
-            sumt += ti;
-            sumt2 += ti * ti;
             sum_r += ri;
             sum_tr += ti * ri;
             sum_r2 += ri * ri;
         }
 
         real dd = n_g * square(beta_x)
-                  + 2.0 * beta_x * beta_x_t_interaction * sumt
-                  + square(beta_x_t_interaction) * sumt2;
+                  + 2.0 * beta_x * beta_x_t_interaction * sumt[g]
+                  + square(beta_x_t_interaction) * sumt2[g];
         real d_rbase = beta_x * sum_r + beta_x_t_interaction * sum_tr;
 
         matrix[2, 2] QQ_re;
-        QQ_re[1, 1] = n_g * square(re_a) + 2.0 * re_a * re_b * sumt + square(re_b) * sumt2;
-        QQ_re[1, 2] = re_c * re_a * sumt + re_c * re_b * sumt2;
+        QQ_re[1, 1] = n_g * square(re_a) + 2.0 * re_a * re_b * sumt[g] + square(re_b) * sumt2[g];
+        QQ_re[1, 2] = re_c * re_a * sumt[g] + re_c * re_b * sumt2[g];
         QQ_re[2, 1] = QQ_re[1, 2];
-        QQ_re[2, 2] = square(re_c) * sumt2;
+        QQ_re[2, 2] = square(re_c) * sumt2[g];
 
         vector[2] Qd;
         Qd[1] = n_g * re_a * beta_x
-                + (re_a * beta_x_t_interaction + re_b * beta_x) * sumt
-                + re_b * beta_x_t_interaction * sumt2;
-        Qd[2] = re_c * beta_x * sumt + re_c * beta_x_t_interaction * sumt2;
+                + (re_a * beta_x_t_interaction + re_b * beta_x) * sumt[g]
+                + re_b * beta_x_t_interaction * sumt2[g];
+        Qd[2] = re_c * beta_x * sumt[g] + re_c * beta_x_t_interaction * sumt2[g];
 
         vector[2] Qtr_base;
         Qtr_base[1] = re_a * sum_r + re_b * sum_tr;
